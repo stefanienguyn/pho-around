@@ -1,0 +1,9 @@
+[project]
+name = "pho-engine"
+version = "0.1.0"
+description = "Phở around — OR/LP itinerary engine (pure, testable module; no server)"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]  # so tests import the pho_engine package without an install
