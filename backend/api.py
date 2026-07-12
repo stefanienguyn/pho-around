@@ -1,0 +1,142 @@
+"""HTTP API for Phở around (phase 3, step 1).
+
+One endpoint — ``POST /api/itinerary`` — wraps the phase-2 engine's
+:func:`pho_engine.plan_itinerary` behind an HTTP contract. The Pydantic models
+below *are* that contract: request models declare what clients must send (and
+FastAPI rejects anything else with a 422 before the handler runs); response
+models declare what we promise back. They deliberately mirror — but stay
+separate from — the engine's internal dataclasses, so the engine can be
+refactored without breaking clients.
+
+The endpoint is stateless: nothing is persisted, per the v1 roadmap
+(``wiki_storage/wiki/concepts/v1-scope-and-roadmap.md``).
+
+Run locally (from ``app/backend/``)::
+
+    .venv/bin/uvicorn api:app --reload
+
+then try it interactively at http://127.0.0.1:8000/docs
+"""
+
+from __future__ import annotations
+
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
+
+from pho_engine import Itinerary, Start, load_seed_places, plan_itinerary
+
+# --- Request schemas: what clients send ----------------------------------
+
+
+class StartIn(BaseModel):
+    """The user's starting location (the route's depot)."""
+
+    lat: float = Field(ge=-90, le=90, description="Latitude, decimal degrees")
+    lng: float = Field(ge=-180, le=180, description="Longitude, decimal degrees")
+
+
+class ItineraryRequest(BaseModel):
+    """A plan request: where you are, how long you have, what you can spend."""
+
+    start: StartIn
+    time_budget_min: float = Field(gt=0, description="Total minutes available")
+    money_budget_vnd: int = Field(ge=0, description="Total spend allowed, in VND")
+
+
+# --- Response schemas: what we promise back -------------------------------
+
+
+class PlaceOut(BaseModel):
+    """One recommended place, as exposed to clients (all fields are public)."""
+
+    id: str
+    name: str
+    category: str
+    district: str
+    price_per_person_vnd: int
+    avg_minutes: int
+    score: float
+    lat: float
+    lng: float
+    tags: list[str]
+
+
+class StopOut(BaseModel):
+    """One leg of the returned route: a place plus the travel to reach it."""
+
+    order: int
+    place: PlaceOut
+    travel_minutes_from_prev: float
+
+
+class ItineraryResponse(BaseModel):
+    """The optimized plan. Empty ``stops`` means nothing fit the budgets —
+    a valid answer (still HTTP 200), not an error."""
+
+    stops: list[StopOut]
+    total_score: float
+    total_minutes: float
+    total_cost_vnd: int
+
+
+# The 30 seed places, loaded once at startup. They are immutable, so there is
+# no reason to re-read the JSON file per request.
+_PLACES = load_seed_places()
+
+app = FastAPI(
+    title="Phở around API",
+    description="Optimized Sài Gòn itineraries from a start point, a time "
+    "budget and a money budget (orienteering MILP under the hood).",
+    version="0.1.0",
+)
+
+
+def _to_response(itinerary: Itinerary) -> ItineraryResponse:
+    """Translate the engine's internal ``Itinerary`` into the API response.
+
+    This explicit field-by-field mapping is the boundary between the engine's
+    types and the public contract — the one place to reconcile them if either
+    side changes shape.
+    """
+    return ItineraryResponse(
+        stops=[
+            StopOut(
+                order=stop.order,
+                place=PlaceOut(
+                    id=stop.place.id,
+                    name=stop.place.name,
+                    category=stop.place.category,
+                    district=stop.place.district,
+                    price_per_person_vnd=stop.place.price_per_person_vnd,
+                    avg_minutes=stop.place.avg_minutes,
+                    score=stop.place.score,
+                    lat=stop.place.lat,
+                    lng=stop.place.lng,
+                    tags=list(stop.place.tags),
+                ),
+                travel_minutes_from_prev=stop.travel_minutes_from_prev,
+            )
+            for stop in itinerary.stops
+        ],
+        total_score=itinerary.total_score,
+        total_minutes=itinerary.total_minutes,
+        total_cost_vnd=itinerary.total_cost_vnd,
+    )
+
+
+@app.post("/api/itinerary", response_model=ItineraryResponse)
+def create_itinerary(request: ItineraryRequest) -> ItineraryResponse:
+    """Compute the best itinerary for the given start point and budgets.
+
+    Declared as a plain ``def`` (not ``async def``) on purpose: the CBC solve
+    is ~2.5 s of pure CPU, so FastAPI must run it in its worker threadpool —
+    an ``async def`` handler would block the event loop for every concurrent
+    request until the solver finished.
+    """
+    itinerary = plan_itinerary(
+        _PLACES,
+        Start(lat=request.start.lat, lng=request.start.lng),
+        time_budget_min=request.time_budget_min,
+        money_budget_vnd=request.money_budget_vnd,
+    )
+    return _to_response(itinerary)

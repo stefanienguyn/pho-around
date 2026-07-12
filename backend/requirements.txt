@@ -1,3 +1,6 @@
-# Phở around — backend / LP itinerary engine (phase 2)
-pulp==2.9.0      # MILP modeling layer; bundles the CBC solver
-pytest==8.3.4    # test runner
+# Phở around — backend: LP itinerary engine (phase 2) + API (phase 3)
+pulp==2.9.0       # MILP modeling layer; bundles the CBC solver
+pytest==8.3.4     # test runner
+fastapi==0.139.0  # web framework: routing, validation, serialization
+uvicorn==0.51.0   # ASGI server that runs the FastAPI app
+httpx2==2.5.0     # HTTP client used by FastAPI's TestClient in tests
