@@ -21,6 +21,7 @@ then try it interactively at http://127.0.0.1:8000/docs
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from pho_engine import Itinerary, Start, load_seed_places, plan_itinerary
@@ -88,6 +89,21 @@ app = FastAPI(
     description="Optimized Sài Gòn itineraries from a start point, a time "
     "budget and a money budget (orienteering MILP under the hood).",
     version="0.1.0",
+)
+
+# The only browser origins allowed to call this API cross-origin: the Vite
+# dev server. CORS controls which *pages* a browser lets read our responses;
+# it is not authentication (curl and scripts are unaffected by it).
+VITE_DEV_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=VITE_DEV_ORIGINS,
+    allow_methods=["POST"],
+    allow_headers=["Content-Type"],
 )
 
 

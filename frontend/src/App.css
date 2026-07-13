@@ -1,0 +1,44 @@
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 24rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-weight: 600;
+}
+
+input {
+  font: inherit;
+  font-weight: normal;
+  padding: 0.4rem 0.5rem;
+}
+
+.start-fields {
+  display: flex;
+  gap: 1rem;
+}
+
+.start-fields label {
+  flex: 1;
+}
+
+button {
+  font: inherit;
+  padding: 0.5rem 1rem;
+  align-self: flex-start;
+}
+
+.error {
+  color: #c0392b;
+}

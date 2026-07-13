@@ -56,6 +56,33 @@ def test_out_of_range_latitude_is_rejected() -> None:
     assert resp.status_code == 422
 
 
+# What a browser's CORS preflight sends alongside its Origin header.
+PREFLIGHT_HEADERS = {
+    "Access-Control-Request-Method": "POST",
+    "Access-Control-Request-Headers": "Content-Type",
+}
+
+
+def test_cors_preflight_approves_the_vite_dev_origin() -> None:
+    """The browser's OPTIONS scout from the Vite dev origin gets vouched for."""
+    resp = client.options(
+        "/api/itinerary",
+        headers={"Origin": "http://localhost:5173", **PREFLIGHT_HEADERS},
+    )
+    assert resp.status_code == 200
+    assert resp.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+def test_cors_preflight_rejects_an_unknown_origin() -> None:
+    """A preflight from any other origin gets no approval header back."""
+    resp = client.options(
+        "/api/itinerary",
+        headers={"Origin": "https://evil.example", **PREFLIGHT_HEADERS},
+    )
+    assert resp.status_code == 400
+    assert "access-control-allow-origin" not in resp.headers
+
+
 def test_tiny_budget_returns_empty_itinerary_not_an_error() -> None:
     """Nothing fits one minute → still 200, with empty stops and zero totals."""
     resp = client.post("/api/itinerary", json={**VALID_REQUEST, "time_budget_min": 1})
