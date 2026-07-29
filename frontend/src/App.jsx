@@ -11,6 +11,36 @@ const DEFAULT_MONEY_VND = '400000'
 
 const API_URL = 'http://127.0.0.1:8000/api/itinerary'
 
+function formatVnd(amount) {
+  return `${amount.toLocaleString('vi-VN')} ₫`
+}
+
+function ItineraryList({ itinerary }) {
+  if (itinerary.stops.length === 0) {
+    return <p>Nothing fits those budgets — try giving it more time or money.</p>
+  }
+  return (
+    <section>
+      <h2>Your route</h2>
+      <ol className="route">
+        {itinerary.stops.map((stop) => (
+          <li key={stop.place.id}>
+            <strong>{stop.place.name}</strong> — {stop.place.category} · {stop.place.district}
+            <div className="stop-detail">
+              {Math.round(stop.travel_minutes_from_prev)} min travel · ~{stop.place.avg_minutes}{' '}
+              min there · {formatVnd(stop.place.price_per_person_vnd)}/person
+            </div>
+          </li>
+        ))}
+      </ol>
+      <p className="totals">
+        {Math.round(itinerary.total_minutes)} min · {formatVnd(itinerary.total_cost_vnd)} · appeal{' '}
+        {itinerary.total_score.toFixed(1)}
+      </p>
+    </section>
+  )
+}
+
 function App() {
   // Inputs always yield strings; keep state as strings and convert to
   // numbers only when building the API payload (the boundary).
@@ -20,11 +50,14 @@ function App() {
   const [moneyVnd, setMoneyVnd] = useState(DEFAULT_MONEY_VND)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  // null = not asked yet; an object with empty stops = asked, nothing fits.
+  const [itinerary, setItinerary] = useState(null)
 
   async function handleSubmit(event) {
     event.preventDefault()
     setLoading(true)
     setError(null)
+    setItinerary(null)
     try {
       const res = await fetch(API_URL, {
         method: 'POST',
@@ -41,7 +74,7 @@ function App() {
         throw new Error(`API error ${res.status}`)
       }
       const data = await res.json()
-      console.log('itinerary:', data)
+      setItinerary(data)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -102,6 +135,7 @@ function App() {
         </button>
       </form>
       {error && <p className="error">Could not plan a route: {error}</p>}
+      {itinerary && <ItineraryList itinerary={itinerary} />}
     </main>
   )
 }
