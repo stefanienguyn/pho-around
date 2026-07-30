@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import MapView from './MapView'
 import './App.css'
 
 // Demo defaults: the District 1 start and budgets from the API smoke test,
@@ -52,6 +53,12 @@ function App() {
   const [error, setError] = useState(null)
   // null = not asked yet; an object with empty stops = asked, nothing fits.
   const [itinerary, setItinerary] = useState(null)
+
+  // Map clicks arrive as raw floats; 5 decimals ≈ 1 m — plenty for a start pin.
+  function handlePickStart(pickedLat, pickedLng) {
+    setLat(pickedLat.toFixed(5))
+    setLng(pickedLng.toFixed(5))
+  }
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -135,6 +142,12 @@ function App() {
         </button>
       </form>
       {error && <p className="error">Could not plan a route: {error}</p>}
+      <MapView
+        startLat={parseFloat(lat)}
+        startLng={parseFloat(lng)}
+        itinerary={itinerary}
+        onPickStart={handlePickStart}
+      />
       {itinerary && <ItineraryList itinerary={itinerary} />}
     </main>
   )

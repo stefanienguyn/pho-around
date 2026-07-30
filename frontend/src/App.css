@@ -43,6 +43,13 @@ button {
   color: #c0392b;
 }
 
+/* Google Maps renders nothing without an explicit height on its container. */
+.map {
+  width: 100%;
+  height: 24rem;
+  margin-top: 1.5rem;
+}
+
 .route li {
   margin-bottom: 0.75rem;
 }
