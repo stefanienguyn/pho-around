@@ -4,3 +4,4 @@ pytest==8.3.4     # test runner
 fastapi==0.139.0  # web framework: routing, validation, serialization
 uvicorn==0.51.0   # ASGI server that runs the FastAPI app
 httpx2==2.5.0     # HTTP client used by FastAPI's TestClient in tests
+python-dotenv==1.2.2  # loads .env into environment variables (backend secrets)
