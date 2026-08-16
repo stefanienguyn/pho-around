@@ -78,8 +78,10 @@ def test_route_is_ordered_to_minimize_travel() -> None:
     # 30 min dwell + ~4.93 min minimal travel = ~34.9; the next-best order needs
     # ~36.6. A 35.5-min budget admits only the minimal (non-crossing) route.
     # stop_buffer_min=0 keeps this a pure routing-geometry test.
+    # speed pinned at 40: the minute math above was derived at that speed, and
+    # this test targets routing geometry, not the calibrated city constant.
     itin = plan_itinerary(
-        [a, b, c], DEPOT, time_budget_min=35.5, money_budget_vnd=0, stop_buffer_min=0
+        [a, b, c], DEPOT, time_budget_min=35.5, money_budget_vnd=0, stop_buffer_min=0, speed_kmh=40
     )
     assert itin.place_ids == ["a", "b", "c"]
 
@@ -110,7 +112,10 @@ def test_tiebreaker_never_drops_a_reachable_place() -> None:
     """
     near = make_place("near", score=4.0, minutes=10, lng=106.005)
     far = make_place("far", score=4.0, minutes=10, lng=106.30)  # ~33 km east
-    itin = plan_itinerary([near, far], DEPOT, time_budget_min=120, money_budget_vnd=0)
+    # speed pinned at 40 so "far" stays reachable within the budget — the test
+    # targets epsilon sizing, and its premise (feasibility) must not drift with
+    # the calibrated constant.
+    itin = plan_itinerary([near, far], DEPOT, time_budget_min=120, money_budget_vnd=0, speed_kmh=40)
     assert sorted(itin.place_ids) == ["far", "near"]
 
 
@@ -128,7 +133,11 @@ def test_tiebreaker_never_swaps_away_a_better_place() -> None:
     """
     good = make_place("good", score=4.3, price=100000, minutes=10, lng=106.5)
     meh = make_place("meh", score=4.2, price=100000, minutes=10, lng=106.005)
-    itin = plan_itinerary([good, meh], DEPOT, time_budget_min=120, money_budget_vnd=100000)
+    # speed pinned at 40: keeps "good" reachable, so the money budget (not
+    # travel feasibility) stays the thing forcing the choice.
+    itin = plan_itinerary(
+        [good, meh], DEPOT, time_budget_min=120, money_budget_vnd=100000, speed_kmh=40
+    )
     assert itin.place_ids == ["good"]
     assert itin.total_score == 4.3
 
@@ -143,9 +152,7 @@ def test_stop_buffer_charges_real_world_friction_per_stop() -> None:
     a = make_place("a", score=4.5, minutes=20, lng=106.001)
     b = make_place("b", score=4.0, minutes=20, lng=106.002)
 
-    both = plan_itinerary(
-        [a, b], DEPOT, time_budget_min=48, money_budget_vnd=0, stop_buffer_min=0
-    )
+    both = plan_itinerary([a, b], DEPOT, time_budget_min=48, money_budget_vnd=0, stop_buffer_min=0)
     assert sorted(both.place_ids) == ["a", "b"], "without a buffer both stops fit"
 
     buffered = plan_itinerary(

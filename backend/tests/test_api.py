@@ -5,9 +5,13 @@ handler, the solver, JSON serialization — via FastAPI's ``TestClient``,
 which calls the app in-process (no real network socket needed).
 """
 
+import httpx2
+import pytest
 from fastapi.testclient import TestClient
 
+import api
 from api import app
+from pho_engine import Start
 
 client = TestClient(app)
 
@@ -92,3 +96,55 @@ def test_tiny_budget_returns_empty_itinerary_not_an_error() -> None:
     assert body["stops"] == []
     assert body["total_score"] == 0.0
     assert body["total_cost_vnd"] == 0
+
+
+def test_live_start_legs_flow_into_the_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When live legs exist, the first stop's travel time comes from them.
+
+    Every place is claimed to be exactly 3 minutes from the start; whatever
+    stop the solver picks first must therefore report 3.0 — proof the fetched
+    legs reach the solver instead of being recomputed.
+    """
+    fake_legs = {place.id: 3.0 for place in api._PLACES}
+    monkeypatch.setattr(api, "_fetch_start_legs", lambda start: fake_legs)
+    resp = client.post("/api/itinerary", json=VALID_REQUEST)
+    assert resp.status_code == 200
+    assert resp.json()["stops"][0]["travel_minutes_from_prev"] == 3.0
+
+
+def test_routes_outage_degrades_instead_of_failing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A dead Routes API mid-request → still 200 with a full itinerary.
+
+    The key is present (so a fetch is attempted) but the HTTP call raises;
+    _fetch_start_legs must swallow it and the handler must fall back.
+    """
+
+    def boom(*args: object, **kwargs: object) -> object:
+        raise httpx2.ConnectError("routes is down")
+
+    monkeypatch.setattr(api, "_API_KEY", "fake-key-for-test")
+    monkeypatch.setattr(api.httpx2, "post", boom)
+    resp = client.post("/api/itinerary", json=VALID_REQUEST)
+    assert resp.status_code == 200
+    assert resp.json()["stops"], "degraded request must still produce a route"
+
+
+def test_fetch_start_legs_parses_and_skips_bad_cells(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The Routes response parser keeps good cells and drops unroutable ones."""
+
+    class FakeResponse:
+        """Minimal stand-in for the httpx2 response the parser touches."""
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> list[dict]:
+            return [
+                {"destinationIndex": 0, "duration": "300s", "condition": "ROUTE_EXISTS"},
+                {"destinationIndex": 1, "condition": "ROUTE_NOT_FOUND"},
+            ]
+
+    monkeypatch.setattr(api, "_API_KEY", "fake-key-for-test")
+    monkeypatch.setattr(api.httpx2, "post", lambda *a, **k: FakeResponse())
+    legs = api._fetch_start_legs(Start(lat=10.7797, lng=106.6990))
+    assert legs == {api._PLACES[0].id: 5.0}

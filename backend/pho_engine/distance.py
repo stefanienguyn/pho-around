@@ -14,9 +14,12 @@ from typing import Protocol
 # Mean Earth radius; standard value for haversine.
 _EARTH_RADIUS_KM = 6371.0
 
-# Assumed average city speed. Deliberately optimistic for Sài Gòn's traffic
-# (agreed with the human); it is the single knob to tune once we see real routes.
-CITY_SPEED_KMH = 40.0
+# Measured average city speed (motorbike): median implied speed over the
+# ≥2 km pairs of the real travel matrix (see data/travel_matrix.json _meta,
+# fetched 2026-08-08, TWO_WHEELER). Used only as the fallback when the matrix
+# or the live Routes call can't answer. Replaced the original 40 km/h guess,
+# which measurement showed was ~3.7× optimistic.
+CITY_SPEED_KMH = 12.6
 
 
 class HasCoords(Protocol):

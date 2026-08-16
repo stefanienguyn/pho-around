@@ -20,11 +20,20 @@ then try it interactively at http://127.0.0.1:8000/docs
 
 from __future__ import annotations
 
+import logging
+import os
+from pathlib import Path
+
+import httpx2
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from pho_engine import Itinerary, Start, load_seed_places, plan_itinerary
+from pho_engine.travel import load_travel_matrix, make_travel_time_fn
+
+logger = logging.getLogger(__name__)
 
 # --- Request schemas: what clients send ----------------------------------
 
@@ -83,6 +92,73 @@ class ItineraryResponse(BaseModel):
 # The 30 seed places, loaded once at startup. They are immutable, so there is
 # no reason to re-read the JSON file per request.
 _PLACES = load_seed_places()
+
+# The committed place-to-place travel matrix (real motorbike minutes), loaded
+# once — like the seed, it only changes when the data files change.
+_MATRIX = load_travel_matrix()
+
+# Backend key for the per-request start legs. Optional on purpose: with no key
+# (tests, offline dev) the API still works — travel falls back to matrix +
+# haversine, per the graceful-degradation design.
+load_dotenv(Path(__file__).parent / ".env")
+_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY")
+if not _API_KEY:
+    logger.warning("GOOGLE_MAPS_API_KEY not set — start legs will use the haversine fallback")
+
+ROUTES_MATRIX_URL = "https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix"
+# Must match the mode the committed matrix was built with (_meta in the JSON).
+TRAVEL_MODE = "TWO_WHEELER"
+# Cap on how long the live call may hold up a response; past this we fall back.
+LIVE_LEGS_TIMEOUT_S = 1.5
+
+
+def _waypoint(point: Start) -> dict:
+    """Shape one lat/lng into the Routes API's waypoint structure."""
+    return {"waypoint": {"location": {"latLng": {"latitude": point.lat, "longitude": point.lng}}}}
+
+
+def _fetch_start_legs(start: Start) -> dict[str, float] | None:
+    """Fetch live, traffic-aware start→place minutes for every seed place.
+
+    Args:
+        start: the request's starting point.
+
+    Returns:
+        Map of place id → minutes, or None when the legs are unavailable (no
+        key, timeout, HTTP error, malformed response) — the caller then relies
+        on the haversine fallback. Failures are logged, never raised: a route
+        with estimated start legs beats no route (graceful degradation).
+    """
+    if not _API_KEY:
+        return None
+    body = {
+        "origins": [_waypoint(start)],
+        "destinations": [_waypoint(place) for place in _PLACES],
+        "travelMode": TRAVEL_MODE,
+        # Unlike the committed matrix, these 30 cells are cheap per-request —
+        # so they get live traffic, the one place we can afford it.
+        "routingPreference": "TRAFFIC_AWARE",
+    }
+    headers = {
+        "X-Goog-Api-Key": _API_KEY,
+        "X-Goog-FieldMask": "destinationIndex,duration,condition",
+    }
+    try:
+        response = httpx2.post(
+            ROUTES_MATRIX_URL, json=body, headers=headers, timeout=LIVE_LEGS_TIMEOUT_S
+        )
+        response.raise_for_status()
+        legs: dict[str, float] = {}
+        for cell in response.json():
+            if cell.get("condition") != "ROUTE_EXISTS" or "duration" not in cell:
+                continue
+            place_id = _PLACES[cell.get("destinationIndex", 0)].id
+            legs[place_id] = int(cell["duration"].rstrip("s")) / 60.0
+        return legs or None
+    except (httpx2.HTTPError, ValueError, KeyError, IndexError) as exc:
+        logger.warning("live start legs unavailable, falling back to haversine: %s", exc)
+        return None
+
 
 app = FastAPI(
     title="Phở around API",
@@ -149,10 +225,14 @@ def create_itinerary(request: ItineraryRequest) -> ItineraryResponse:
     an ``async def`` handler would block the event loop for every concurrent
     request until the solver finished.
     """
+    start = Start(lat=request.start.lat, lng=request.start.lng)
     itinerary = plan_itinerary(
         _PLACES,
-        Start(lat=request.start.lat, lng=request.start.lng),
+        start,
         time_budget_min=request.time_budget_min,
         money_budget_vnd=request.money_budget_vnd,
+        # Real travel times: committed matrix for place→place, live legs for
+        # start→place, haversine as the floor (see pho_engine/travel.py).
+        travel_time_fn=make_travel_time_fn(_MATRIX, start_legs=_fetch_start_legs(start)),
     )
     return _to_response(itinerary)

@@ -39,6 +39,7 @@ import os
 import pulp
 
 from pho_engine.distance import CITY_SPEED_KMH, travel_minutes
+from pho_engine.travel import TravelTimeFn
 from pho_engine.models import Itinerary, Place, Start, Stop
 
 # Default ceiling on solve time so a pathological instance can't hang a caller.
@@ -121,6 +122,7 @@ def plan_itinerary(
     speed_kmh: float = CITY_SPEED_KMH,
     stop_buffer_min: float = STOP_BUFFER_MIN,
     time_limit_s: int = _DEFAULT_TIME_LIMIT_S,
+    travel_time_fn: TravelTimeFn | None = None,
 ) -> Itinerary:
     """Compute the highest-value itinerary that fits the time and money budgets.
 
@@ -130,6 +132,10 @@ def plan_itinerary(
         time_budget_min: total minutes available (dwell + buffer + travel).
         money_budget_vnd: total spend allowed, in VND.
         speed_kmh: assumed travel speed for the haversine time estimate.
+            Ignored when ``travel_time_fn`` is provided.
+        travel_time_fn: optional injected answerer for "minutes from a to b"
+            (see :mod:`pho_engine.travel`). Default None keeps the haversine
+            estimate — existing callers and tests are unaffected.
         stop_buffer_min: real-world friction added to every stop's dwell time
             (see :data:`STOP_BUFFER_MIN`). Pass 0 to model dwell time exactly.
         time_limit_s: solver wall-clock cap; a safety guard, not a tuning knob.
@@ -150,11 +156,14 @@ def plan_itinerary(
 
     # Precompute travel minutes for every edge we will create: depot->place and
     # place->place. No edge returns to the depot (open path), so no *->0 entries.
+    # The answers come from the injected travel_time_fn when one is provided
+    # (real matrix + live legs), else from the haversine estimate as before.
+    fn = travel_time_fn or (lambda a, b: travel_minutes(a, b, speed_kmh=speed_kmh))
     travel: dict[tuple[int, int], float] = {}
     for i in [0, *place_idx]:
         for j in place_idx:
             if i != j:
-                travel[(i, j)] = travel_minutes(coord_of[i], coord_of[j], speed_kmh=speed_kmh)
+                travel[(i, j)] = fn(coord_of[i], coord_of[j])
 
     prob = pulp.LpProblem("itinerary", pulp.LpMaximize)
 
@@ -183,9 +192,7 @@ def plan_itinerary(
     # Time: (dwell + per-stop buffer) at chosen places + travel along chosen edges.
     # The buffer rides on the dwell coefficient, so the constraint stays linear.
     prob += (
-        pulp.lpSum(
-            (places[i - 1].avg_minutes + stop_buffer_min) * visit[i] for i in place_idx
-        )
+        pulp.lpSum((places[i - 1].avg_minutes + stop_buffer_min) * visit[i] for i in place_idx)
         + pulp.lpSum(travel[e] * go[e] for e in travel)
         <= time_budget_min
     ), "time_budget"
