@@ -1,66 +1,898 @@
-main {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 2rem 1rem;
+/* ============================================================
+   Phở around — "Plastic Stool" design system.
+   All frontend CSS lives in this one file. Every color, size,
+   and shadow below the :root block must come from a token
+   defined in it — no raw values past this point.
+   ============================================================ */
+
+/* ---------- 1. Design tokens ---------- */
+
+:root {
+  /* One deliberate look (cream paper); stops the browser's OS
+     dark mode from repainting unstyled surfaces. */
+  color-scheme: light;
+
+  /* Ink */
+  --ink: #1b1a17; /* text, borders, the drawn line */
+  --ink-2: #4a463d; /* secondary text */
+  --ink-3: #7a7365; /* muted text, placeholders */
+
+  /* Surfaces */
+  --paper: #fff6e9; /* page background */
+  --card: #fffdf7; /* raised surfaces */
+  --wash: #f5ebda; /* inset wells, disabled tracks, skeletons */
+  --line-soft: #e3d8c2; /* hairline dividers where ink is too heavy */
+
+  /* Accents. Usage rules (not suggestions):
+     --red is fill/stroke only — red TEXT uses --red-press;
+     --yolk marks money and nothing else, with --yolk-text on it;
+     --mint never carries meaning alone (always icon + word). */
+  --red: #e23d33;
+  --red-press: #b62a22;
+  --red-tint: #f7d8d3;
+  --cobalt: #1c4fd8; /* start pin, links, focus ring */
+  --cobalt-tint: #dce2f6;
+  --mint: #2fb98a;
+  --mint-tint: #ddf3ea;
+  --yolk: #ffb627;
+  --yolk-text: #6b4904;
+
+  /* Type families */
+  --font-display: 'Nunito', system-ui, sans-serif; /* 700/800 only */
+  --font-body: 'Be Vietnam Pro', system-ui, sans-serif; /* 400/500/600 */
+
+  /* Type scale — mobile values; desktop overrides in the media query
+     below. Each token is a complete `font` shorthand:
+     weight size/line-height family. Line-height floors are Vietnamese-
+     driven: body ≥1.5, headings ≥1.15, or stacked marks (Ế, Ộ) clip. */
+  --t-display: 800 30px/1.2 var(--font-display);
+  --t-h1: 700 24px/1.25 var(--font-display);
+  --t-h2: 700 18px/1.3 var(--font-display);
+  --t-body: 400 16px/1.55 var(--font-body);
+  --t-strong: 600 16px/1.55 var(--font-body);
+  --t-sm: 400 14px/1.5 var(--font-body);
+  --t-micro: 600 12px/1.4 var(--font-body);
+  --track-micro: 0.02em; /* letter-spacing partner of --t-micro */
+  /* Plan-button label: constant 20px/700 display at every width. Large
+     bold text is what lets paper-on-red pass contrast (3.96:1 ≥ 3:1);
+     16px body text on red would fail 4.5:1. */
+  --t-button: 700 20px/1.15 var(--font-display);
+  --t-sm-strong: 600 14px/1.5 var(--font-body); /* price pill, small emphasis */
+
+  /* Spacing */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  /* Radii */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+
+  /* Borders & shadows — depth comes from hard offset blocks.
+     --shadow-soft is the one blurred exception, reserved for chips
+     floating over arbitrary map imagery. */
+  --border: 2px solid var(--ink);
+  --border-thin: 1.5px solid var(--ink);
+  --shadow-hard: 4px 4px 0 var(--ink);
+  --shadow-press: 2px 2px 0 var(--ink);
+  --shadow-soft: 0 6px 20px rgba(27, 26, 23, 0.12);
+
+  /* Gạch bông tile, 28px repeat: paper ground, cobalt-tint diamond,
+     red-tint quarter circles at the corners. Inline SVG (vector) so it
+     stays crisp at any DPR; its colors mirror the tokens above. */
+  --tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28'%3E%3Crect width='28' height='28' fill='%23FFF6E9'/%3E%3Cpath d='M14 3L25 14L14 25L3 14Z' fill='%23DCE2F6'/%3E%3Ccircle cx='0' cy='0' r='6' fill='%23F7D8D3'/%3E%3Ccircle cx='28' cy='0' r='6' fill='%23F7D8D3'/%3E%3Ccircle cx='0' cy='28' r='6' fill='%23F7D8D3'/%3E%3Ccircle cx='28' cy='28' r='6' fill='%23F7D8D3'/%3E%3C/svg%3E");
 }
 
-form {
+/* Desktop type sizes (≥960px): the tokens change value, and every
+   element reading them follows — no per-element media queries. */
+@media (min-width: 960px) {
+  :root {
+    --t-display: 800 40px/1.15 var(--font-display);
+    --t-h1: 700 28px/1.2 var(--font-display);
+    --t-h2: 700 20px/1.3 var(--font-display);
+  }
+}
+
+/* ---------- 2. Base ---------- */
+
+/* Padding and borders count INSIDE declared sizes — the sane box model. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: var(--t-body);
+}
+
+h1 {
+  font: var(--t-display);
+  margin: 0;
+}
+
+h2 {
+  font: var(--t-h2);
+}
+
+/* One focus style for everything interactive; never removed without
+   a replacement. :focus-visible = keyboard focus only, not mouse clicks. */
+:focus-visible {
+  outline: 3px solid var(--cobalt);
+  outline-offset: 2px;
+}
+
+/* Allowed on: hero band, loading panel, empty-result panel, and the
+   stop-card hover strip. Never behind the map, the results list, or
+   the totals bar. */
+.tile {
+  background: var(--tile) left top / 28px 28px repeat;
+}
+
+/* ---------- 3. Layout shell ----------
+   Three regions: hero → plan → results, plus the map. Mobile-first:
+   the base rules are the phone (stacked, map pinned to the top edge);
+   the ≥960px query switches to a two-column grid. */
+
+.hero {
+  padding: var(--s-5) var(--s-4);
+  border-bottom: var(--border); /* hard ink edge — never a radius here */
+}
+
+.subline {
+  font: var(--t-body);
+  color: var(--ink-2);
+  margin: var(--s-2) 0 0;
+}
+
+/* The route ribbon: a red line with three stool discs riding it — the
+   product's output in miniature. Static by design; never animated. */
+.ribbon {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 320px;
+  margin-top: var(--s-5);
+}
+
+.ribbon::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--red);
+}
+
+/* The signature object: a filled disc, ink ring, number inside. Used at
+   three scales (ribbon 28px, stop cards 32px, loading 64px) via --disc-size. */
+.disc {
+  display: grid;
+  place-items: center;
+  width: var(--disc-size, 28px);
+  height: var(--disc-size, 28px);
+  border-radius: 50%;
+  background: var(--red);
+  border: var(--border);
+  color: var(--paper);
+  font: 700 var(--disc-font, 14px) / 1 var(--font-display);
+  position: relative; /* rides above the ribbon line */
+}
+
+/* On the tile band the discs get a card halo so they read against the pattern. */
+.ribbon .disc {
+  box-shadow: 0 0 0 4px var(--card);
+}
+
+/* Once results exist the hero yields the screen: wordmark only. A plain
+   class-driven change — never scroll-linked (it would fight the sticky map). */
+.hero.has-results {
+  display: flex;
+  align-items: center;
+  min-height: 88px; /* the brief's collapsed band height */
+  padding: var(--s-3) var(--s-4);
+}
+
+.hero.has-results .subline,
+.hero.has-results .ribbon {
+  display: none;
+}
+
+.content {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  max-width: 24rem;
 }
 
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-weight: 600;
+/* DOM order is plan → map → results so tab order starts at the form;
+   on the phone the map VISUALLY sits first (order: -1), pinned while
+   plan and results scroll up beneath it. */
+.map-region {
+  order: -1;
+  position: sticky;
+  top: 0;
+  z-index: 5; /* above the content sliding under it */
+  border-bottom: var(--border); /* the brief's 2px ink line on the map's bottom edge */
 }
 
-input {
-  font: inherit;
-  font-weight: normal;
-  padding: 0.4rem 0.5rem;
-}
-
-.start-fields {
-  display: flex;
-  gap: 1rem;
-}
-
-.start-fields label {
-  flex: 1;
-}
-
-button {
-  font: inherit;
-  padding: 0.5rem 1rem;
-  align-self: flex-start;
-}
-
-.error {
-  color: #c0392b;
+.plan,
+.results {
+  padding: var(--s-4);
 }
 
 /* Google Maps renders nothing without an explicit height on its container. */
 .map {
   width: 100%;
-  height: 24rem;
-  margin-top: 1.5rem;
+  height: 42vh;
 }
 
-.route li {
-  margin-bottom: 0.75rem;
+@media (min-width: 960px) {
+  .content {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      'plan map'
+      'results map';
+    column-gap: var(--s-5);
+    padding: var(--s-5);
+  }
+
+  .plan {
+    grid-area: plan;
+    padding: 0;
+  }
+
+  .results {
+    grid-area: results;
+    padding: 0;
+  }
+
+  .map-region {
+    grid-area: map;
+    border-bottom: none;
+    /* Sticky inside a grid area: align-self start keeps this item at
+       content height — a default (stretched) item fills the whole
+       track and has nowhere left to stick. */
+    align-self: start;
+    top: var(--s-5);
+  }
+
+  .map {
+    height: calc(100vh - var(--s-7));
+  }
 }
 
-.stop-detail {
-  font-size: 0.875rem;
-  opacity: 0.75;
+/* ---------- 4. The plan form ---------- */
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
 }
 
-.totals {
-  font-weight: 600;
-  border-top: 1px solid currentColor;
-  padding-top: 0.5rem;
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.control-label {
+  font: var(--t-strong);
+}
+
+/* Preset chips. Selected state is an ink FILL (never a tint alone —
+   color-blind-safe by shape of contrast, not hue). */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.chip {
+  min-height: 44px; /* touch-target floor */
+  padding: 0 var(--s-4);
+  border: var(--border-thin);
+  border-radius: var(--r-pill);
+  background: var(--card);
+  color: var(--ink);
+  font: var(--t-strong);
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.chip:active {
+  translate: 2px 2px;
+}
+
+/* The slider: a wash track with an ink border; the filled portion is
+   painted by a two-stop gradient that reads --fill (set inline by React
+   as a percentage). The thumb is the stool disc at 28px. */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.slider {
+  flex: 1;
+  appearance: none;
+  height: 28px; /* room for the thumb; the track paints its own 6px */
+  margin: 0;
+  background: transparent;
+}
+
+.slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border: 2px solid var(--ink);
+  border-radius: var(--r-pill);
+  background: linear-gradient(to right, var(--red) var(--fill), var(--wash) var(--fill));
+}
+
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--red);
+  border: var(--border);
+  margin-top: -11px; /* center a 28px thumb on the 10px (6+2+2) track */
+  cursor: pointer;
+}
+
+.slider:active::-webkit-slider-thumb {
+  scale: 1.1;
+}
+
+/* Firefox draws tracks/thumbs with its own pseudo-elements; it also has
+   a real "filled portion" element, so no gradient trick needed. */
+.slider::-moz-range-track {
+  height: 6px;
+  border: 2px solid var(--ink);
+  border-radius: var(--r-pill);
+  background: var(--wash);
+}
+
+.slider::-moz-range-progress {
+  height: 6px;
+  background: var(--red);
+  border-radius: var(--r-pill);
+}
+
+.slider::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--red);
+  border: var(--border);
+  cursor: pointer;
+}
+
+.readout {
+  font: var(--t-strong);
+  font-variant-numeric: tabular-nums; /* digits share a width — no jitter */
+  min-width: 6ch;
+  text-align: right;
+}
+
+/* The Start row: empty invitation, or dot + coords + Move. */
+.start-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 28px;
+}
+
+.start-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--cobalt);
+  border: var(--border-thin);
+}
+
+.start-value {
+  font: var(--t-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.start-empty {
+  color: var(--ink-2);
+}
+
+.text-button {
+  border: none;
+  background: none;
+  padding: 0 var(--s-2);
+  min-height: 44px;
+  color: var(--cobalt);
+  font: var(--t-strong);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* The coordinates disclosure — exact values are the point in here, so
+   raw number fields survive only inside it. */
+.coords summary {
+  padding: var(--s-3) 0; /* lifts the hit area to ~44px */
+  font: var(--t-sm);
+  color: var(--ink-2);
+  cursor: pointer;
+  width: fit-content;
+}
+
+.start-fields {
+  display: flex;
+  gap: var(--s-4);
+  margin-top: var(--s-2);
+}
+
+.start-fields label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  font: var(--t-sm);
+}
+
+input[type='number'] {
+  font: var(--t-body);
+  padding: var(--s-2) var(--s-3);
+  border: var(--border-thin);
+  border-radius: var(--r-sm);
+  background: var(--card);
+  color: var(--ink);
+}
+
+/* The one big action. Pressing physically depresses it: it moves into
+   its own shadow. */
+.plan-button {
+  width: 100%;
+  min-height: 56px;
+  background: var(--red);
+  color: var(--paper);
+  font: var(--t-button);
+  border: var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-hard);
+  cursor: pointer;
+}
+
+.plan-button:active {
+  translate: 2px 2px;
+  box-shadow: var(--shadow-press);
+}
+
+.plan-button:disabled {
+  background: var(--wash);
+  color: var(--ink-2);
+  box-shadow: none;
+  translate: none;
+  cursor: default;
+}
+
+.error {
+  color: var(--red-press);
+}
+
+/* ---------- 5. Map shell (hint pill) ---------- */
+
+.map-shell {
+  position: relative;
+}
+
+.map-shell:focus {
+  outline: none; /* programmatic focus target; ring stays for :focus-visible */
+}
+
+.map-hint {
+  position: absolute;
+  bottom: var(--s-4);
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin: 0 auto;
+  padding: var(--s-2) var(--s-4);
+  background: var(--card);
+  border: var(--border-thin);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-soft); /* the one blurred shadow: floats over map imagery */
+  font: var(--t-strong);
+}
+
+@keyframes hint-shake {
+  25% {
+    translate: -4px 0;
+  }
+  75% {
+    translate: 4px 0;
+  }
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    translate: 0 2px;
+  }
+}
+
+@keyframes spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+/* Map pins: real DOM handed to AdvancedMarkerElement, so they inherit
+   these styles and stay identical to the in-list discs. The marker
+   anchors its content bottom-center; `translate` re-centers the disc on
+   the exact spot. (`translate` and `transform` are separate properties,
+   so the hover scale below composes with it instead of overwriting.) */
+.stop-pin {
+  --disc-size: 34px;
+  --disc-font: 16px;
+  translate: 0 50%;
+}
+
+/* 34px visual, 44px touch target: the pseudo-element extends the hit
+   area without growing the disc. */
+.stop-pin::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+}
+
+/* The start pin: cobalt with a paper square notch — distinct from the
+   numbered stops in shape AND color, so it's never miscounted. */
+.start-pin {
+  --disc-size: 28px;
+  background: var(--cobalt);
+  translate: 0 50%;
+}
+
+.start-pin::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: var(--paper);
+}
+
+/* The map pin's half of the card ↔ pin link (class added by MapView). */
+.map-pin.is-hot {
+  transform: scale(1.08);
+}
+
+/* ---------- 6. Motion ----------
+   Every transition/animation lives inside this block: reduced-motion
+   users get instant state changes, never a broken layout. */
+@media (prefers-reduced-motion: no-preference) {
+  .chip,
+  .plan-button {
+    transition:
+      translate 90ms,
+      box-shadow 90ms;
+  }
+
+  .slider::-webkit-slider-thumb {
+    transition: scale 120ms;
+  }
+
+  .map-hint[data-shake] {
+    animation: hint-shake 120ms;
+  }
+
+  .stop-card::before {
+    transition: translate 120ms ease-out;
+  }
+
+  .map-pin {
+    transition: transform 120ms;
+  }
+
+  /* Results entrance: 160ms fade + 2px rise, 40ms stagger, ≤240ms total. */
+  .route li {
+    animation: card-in 160ms both;
+    animation-delay: calc(var(--stagger) * 40ms);
+  }
+
+  /* Once per 1.2s, linear — a turning object, not a bouncing dot.
+     Reduced-motion users get a static disc; the label still narrates. */
+  .spin-disc {
+    animation: spin 1.2s linear infinite;
+  }
+}
+
+/* ---------- 7. Results ---------- */
+
+.results h2 {
+  margin: 0 0 var(--s-4);
+}
+
+.route {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* The connector: travel time lives in the gap between two cards. The
+   32px column mirrors the card's disc column so the dashes line up. */
+.leg {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: var(--s-3);
+  align-items: center;
+  margin: 0;
+  padding-left: var(--s-4);
+  font: var(--t-sm);
+  color: var(--ink-2);
+}
+
+.leg::before {
+  content: '';
+  justify-self: center;
+  height: var(--s-5);
+  border-left: 2px dashed var(--ink);
+}
+
+.stop-card {
+  position: relative;
+  overflow: hidden; /* clips the tile strip to the card's radius */
+  display: grid;
+  grid-template-columns: 32px 1fr; /* mobile: price wraps below the meta */
+  gap: var(--s-1) var(--s-3);
+  align-items: start;
+  background: var(--card);
+  border: var(--border-thin);
+  border-radius: var(--r-md);
+  padding: var(--s-4);
+}
+
+/* Hover, keyboard focus, or the map pin's hover (is-hot): the tile strip
+   wipes in, the border goes full ink — list and map read as one object. */
+.stop-card:hover,
+.stop-card:focus-visible,
+.stop-card.is-hot {
+  border: var(--border);
+}
+
+.stop-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 10px;
+  background: var(--tile) left top / 28px 28px repeat;
+  translate: -10px 0;
+}
+
+.stop-card:hover::before,
+.stop-card:focus-visible::before,
+.stop-card.is-hot::before {
+  translate: 0 0;
+}
+
+.stop-disc {
+  --disc-size: 32px;
+  --disc-font: 15px;
+}
+
+.stop-name {
+  font: var(--t-h2);
+  margin: 0;
+}
+
+.stop-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: var(--s-1) 0 0;
+  font: var(--t-sm);
+  color: var(--ink-2);
+}
+
+.chip-mini {
+  padding: 0 var(--s-2);
+  border: var(--border-thin);
+  border-radius: var(--r-pill);
+  font: var(--t-micro);
+  letter-spacing: var(--track-micro);
+  color: var(--ink);
+}
+
+/* The only yolk on screen — money stays findable. */
+.price-pill {
+  grid-column: 2;
+  justify-self: start;
+  padding: var(--s-1) var(--s-3);
+  background: var(--yolk);
+  color: var(--yolk-text);
+  border-radius: var(--r-pill);
+  font: var(--t-sm-strong);
+}
+
+@media (min-width: 960px) {
+  .stop-card {
+    grid-template-columns: 32px 1fr auto; /* price returns to the right edge */
+  }
+
+  .price-pill {
+    grid-column: auto;
+    justify-self: end;
+  }
+}
+
+/* ---------- 8. Status panels (loading / empty / error) ---------- */
+
+/* Loading and empty: designed tile-backed moments. */
+.status-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-4);
+  padding: var(--s-6) var(--s-5);
+  border: var(--border-thin);
+  border-radius: var(--r-lg);
+}
+
+.status-panel h2 {
+  margin: 0;
+}
+
+.status-body {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+/* The loading disc: the stool disc at 64px with a paper "clock hand" —
+   a plain circle shows nothing when it rotates. */
+.spin-disc {
+  --disc-size: 64px;
+  position: relative;
+}
+
+.spin-disc::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: calc(50% - 2px);
+  width: 4px;
+  height: 40%;
+  border-radius: var(--r-pill);
+  background: var(--paper);
+}
+
+.loading-label {
+  margin: 0;
+  font: var(--t-strong);
+}
+
+/* Static wash blocks — no shimmer sweep; calm beats busy. */
+.skeleton-card {
+  width: 100%;
+  height: 72px;
+  border-radius: var(--r-md);
+  background: var(--wash);
+}
+
+/* Error: card, no tile, a square-cornered red-press edge — visually
+   unmistakable for the (cheerful, tiled) empty state. */
+.error-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-4);
+  padding: var(--s-5);
+  background: var(--card);
+  border-left: 2px solid var(--red-press);
+  border-radius: 0 var(--r-md) var(--r-md) 0; /* never round a single-sided border */
+}
+
+.error-panel h2 {
+  margin: 0;
+}
+
+.error-detail summary {
+  font: var(--t-sm);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.error-detail p {
+  margin: var(--s-2) 0 0;
+  font: var(--t-sm);
+  color: var(--ink-2);
+}
+
+/* Visually hidden, still announced — the screen-reader status line. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- 9. Totals bar ---------- */
+
+/* Ink footer, not another card. Sticky on phones; normal flow at the
+   page's end on desktop (the sticky map never collides with it). */
+.totals-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  background: var(--ink);
+  color: var(--paper);
+  font: var(--t-strong);
+}
+
+.totals-line {
+  flex: 1;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.within-budget {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.check {
+  color: var(--mint); /* on ink: 6.98:1 — mint never sits on paper */
+  font-weight: 700;
+}
+
+/* Ghost button: inherits its color, so it works on ink (bar) and paper
+   (below the results list) alike. */
+.ghost-button {
+  min-height: 44px;
+  padding: 0 var(--s-4);
+  background: none;
+  border: 1.5px solid currentColor;
+  border-radius: var(--r-sm);
+  color: inherit;
+  font: var(--t-strong);
+  cursor: pointer;
+}
+
+.bar-reset {
+  display: none; /* desktop-only home */
+}
+
+.results-reset {
+  margin-top: var(--s-4);
+}
+
+@media (min-width: 960px) {
+  .totals-bar {
+    position: static;
+  }
+
+  .bar-reset {
+    display: block;
+  }
+
+  .results-reset {
+    display: none;
+  }
 }
