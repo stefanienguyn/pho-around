@@ -30,6 +30,7 @@ _BACKEND_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_BACKEND_DIR))
 
 from pho_engine.distance import haversine_km  # noqa: E402
+from seed_io import write_seed  # noqa: E402
 
 GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 PLACES_URL = "https://places.googleapis.com/v1/places:searchText"
@@ -305,15 +306,9 @@ def main() -> None:
             place["lat"] = round(new_by_id[place["id"]].lat, 6)
             place["lng"] = round(new_by_id[place["id"]].lng, 6)
     seed["_note"] = NOTE_AFTER_GEOCODING
-    # Preserve the file's one-place-per-line layout so the git diff shows only
-    # the changed lat/lng values and the note — not a wholesale reformat.
-    lines = ["{", f'  "_note": {json.dumps(seed["_note"], ensure_ascii=False)},', '  "places": [']
-    last = len(seed["places"]) - 1
-    for index, place in enumerate(seed["places"]):
-        comma = "," if index < last else ""
-        lines.append(f"    {json.dumps(place, ensure_ascii=False)}{comma}")
-    lines += ["  ]", "}"]
-    SEED_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    # write_seed preserves the one-place-per-line layout (shared with the
+    # discovery script via seed_io) so diffs show only real changes.
+    write_seed(seed)
     print(f"Wrote {len(accepted)} updated coordinates to {SEED_PATH.name}.")
 
 

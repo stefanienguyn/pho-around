@@ -4,11 +4,16 @@ from pho_engine.models import CATEGORIES
 from pho_engine.seed import load_seed_places
 
 
-def test_loads_all_thirty_places() -> None:
-    """The seed file holds the documented 30 places with unique ids."""
+def test_loads_all_seed_places() -> None:
+    """The seed file holds the documented 100 places with unique ids.
+
+    The count is asserted exactly on purpose: changing the dataset should be
+    a deliberate act that touches this number (30 hand-seeded + 7 discovered
+    museums/landmarks + 63 imported from the human's food CSV, 2026-08-18).
+    """
     places = load_seed_places()
-    assert len(places) == 30
-    assert len({p.id for p in places}) == 30
+    assert len(places) == 100
+    assert len({p.id for p in places}) == 100
 
 
 def test_every_category_is_present_and_valid() -> None:

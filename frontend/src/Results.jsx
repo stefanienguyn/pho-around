@@ -1,11 +1,11 @@
 import { formatDuration, formatVnd } from './format'
 
 // Deep link to the real Google Maps place page (photos, hours, reviews) —
-// zero API calls, opens the Maps app on phones. Name+district search lands
-// on the right place for our curated spots; upgrades to query_place_id if
-// the seed ever stores Google place ids.
+// zero API calls, opens the Maps app on phones. Districts were abolished in
+// the 2025 reorganization, so the query is name+city only; upgrades to
+// query_place_id if the seed ever stores Google place ids.
 function mapsHref(place) {
-  const query = `${place.name}, ${place.district}, Hồ Chí Minh City`
+  const query = `${place.name}, Hồ Chí Minh City`
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 
