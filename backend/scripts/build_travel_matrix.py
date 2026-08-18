@@ -50,46 +50,69 @@ TOP_N = 5
 CALIBRATION_MIN_KM = 2.0
 
 
+def _waypoint(place: dict[str, Any]) -> dict:
+    """Shape one seed row into the Routes API's waypoint structure."""
+    return {
+        "waypoint": {"location": {"latLng": {"latitude": place["lat"], "longitude": place["lng"]}}}
+    }
+
+
 def fetch_matrix(
-    client: httpx2.Client, *, places: list[dict[str, Any]], mode: str, key: str
+    client: httpx2.Client,
+    *,
+    places: list[dict[str, Any]],
+    mode: str,
+    key: str,
+    nearest: int | None = None,
 ) -> tuple[dict[tuple[str, str], float], list[str]]:
-    """Fetch real travel minutes for every ordered pair of places.
+    """Fetch real travel minutes between places — full grid or k-nearest.
 
     Args:
         client: shared HTTP client.
         places: seed rows (id/lat/lng used).
         mode: Routes API travel mode (e.g. TWO_WHEELER, DRIVE).
         key: the backend API key.
+        nearest: None = every ordered pair (n·(n−1) elements — fine at ~30
+            places, wasteful at 100 where distant pairs are never ridden);
+            k = each place → only its k nearest neighbours (n·k elements).
+            Pairs absent from a sparse matrix fall back to haversine
+            per-cell at lookup time, by design.
 
     Returns:
-        (minutes, flags): ``minutes`` maps (origin_id, destination_id) to
-        travel minutes for every accepted off-diagonal cell; ``flags`` lists
-        human-readable reasons for every cell that was rejected or missing.
+        (minutes, flags): accepted cells and human-readable rejections.
 
     Raises:
         SystemExit: on a non-200 response — systemic refusal (API not enabled,
         key restriction, quota), not a per-cell miss.
     """
-    waypoints = [
-        {"waypoint": {"location": {"latLng": {"latitude": p["lat"], "longitude": p["lng"]}}}}
-        for p in places
-    ]
-    ids = [p["id"] for p in places]
+    # Each job is one request: (origin rows, destination rows).
+    jobs: list[tuple[list[dict], list[dict]]] = []
+    if nearest is None:
+        origins_per_request = max(1, MAX_ELEMENTS_PER_REQUEST // len(places))
+        for start in range(0, len(places), origins_per_request):
+            end = start + origins_per_request
+            jobs.append((places[start:end], places))
+        expected = len(places) * (len(places) - 1)
+    else:
+        for origin in places:
+            here = SimpleNamespace(lat=origin["lat"], lng=origin["lng"])
+            neighbours = sorted(
+                (p for p in places if p["id"] != origin["id"]),
+                key=lambda p: haversine_km(here, SimpleNamespace(lat=p["lat"], lng=p["lng"])),
+            )[:nearest]
+            jobs.append(([origin], neighbours))
+        expected = len(places) * min(nearest, len(places) - 1)
+
     minutes: dict[tuple[str, str], float] = {}
     flags: list[str] = []
-
-    # Slice origins so each request's elements (origins × destinations) fit the cap.
-    origins_per_request = max(1, MAX_ELEMENTS_PER_REQUEST // len(places))
     headers = {
         "X-Goog-Api-Key": key,
         "X-Goog-FieldMask": "originIndex,destinationIndex,duration,condition,status",
     }
-    for slice_start in range(0, len(places), origins_per_request):
-        slice_end = slice_start + origins_per_request
-        origin_slice = waypoints[slice_start:slice_end]
+    for origins, destinations in jobs:
         body = {
-            "origins": origin_slice,
-            "destinations": waypoints,
+            "origins": [_waypoint(p) for p in origins],
+            "destinations": [_waypoint(p) for p in destinations],
             "travelMode": mode,
             # Typical (non-live) times on purpose: this file must not be
             # secretly stamped with the traffic of the morning it was fetched.
@@ -101,11 +124,11 @@ def fetch_matrix(
             detail = response.json().get("error", {}).get("message", response.text[:200])
             sys.exit(f"Routes API refused (HTTP {response.status_code}): {detail}")
         for cell in response.json():
-            # originIndex is relative to this request's origins slice.
-            origin_id = ids[slice_start + cell.get("originIndex", 0)]
-            dest_id = ids[cell.get("destinationIndex", 0)]
+            # Indices are relative to this request's origin/destination lists.
+            origin_id = origins[cell.get("originIndex", 0)]["id"]
+            dest_id = destinations[cell.get("destinationIndex", 0)]["id"]
             if origin_id == dest_id:
-                continue  # diagonal: place to itself
+                continue  # diagonal: place to itself (full-grid mode only)
             pair = f"{origin_id} → {dest_id}"
             if cell.get("condition") != "ROUTE_EXISTS" or "duration" not in cell:
                 flags.append(f"{pair}: no route ({cell.get('condition', 'no condition')})")
@@ -116,10 +139,9 @@ def fetch_matrix(
                 continue
             minutes[(origin_id, dest_id)] = mins
 
-    expected = len(places) * (len(places) - 1)
     got = len(minutes) + len(flags)
     if got != expected:
-        flags.append(f"MISSING CELLS: expected {expected} off-diagonal, received {got}")
+        flags.append(f"MISSING CELLS: expected {expected}, received {got}")
     return minutes, flags
 
 
@@ -199,6 +221,12 @@ def main() -> None:
     parser.add_argument(
         "--mode", default=DEFAULT_MODE, help=f"Routes API travel mode (default {DEFAULT_MODE})"
     )
+    parser.add_argument(
+        "--nearest",
+        type=int,
+        default=None,
+        help="sparse mode: fetch only each place's k nearest pairs (n·k elements, not n²)",
+    )
     args = parser.parse_args()
 
     load_dotenv(_BACKEND_DIR / ".env")
@@ -208,7 +236,9 @@ def main() -> None:
 
     places = json.loads(SEED_PATH.read_text(encoding="utf-8"))["places"]
     with httpx2.Client(timeout=30.0) as client:
-        minutes, flags = fetch_matrix(client, places=places, mode=args.mode, key=key)
+        minutes, flags = fetch_matrix(
+            client, places=places, mode=args.mode, key=key, nearest=args.nearest
+        )
     calibrated = print_report(minutes, flags, places=places)
 
     if not args.write:
@@ -222,6 +252,7 @@ def main() -> None:
             "fetched": date.today().isoformat(),
             "places": len(places),
             "pairs": len(minutes),
+            "nearest": args.nearest,
             "calibrated_speed_kmh": round(calibrated, 1),
             "calibration_min_km": CALIBRATION_MIN_KM,
         },

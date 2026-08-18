@@ -106,7 +106,7 @@ def test_live_start_legs_flow_into_the_route(monkeypatch: pytest.MonkeyPatch) ->
     legs reach the solver instead of being recomputed.
     """
     fake_legs = {place.id: 3.0 for place in api._PLACES}
-    monkeypatch.setattr(api, "_fetch_start_legs", lambda start: fake_legs)
+    monkeypatch.setattr(api, "_fetch_start_legs", lambda start, **kwargs: fake_legs)
     resp = client.post("/api/itinerary", json=VALID_REQUEST)
     assert resp.status_code == 200
     assert resp.json()["stops"][0]["travel_minutes_from_prev"] == 3.0
@@ -146,5 +146,5 @@ def test_fetch_start_legs_parses_and_skips_bad_cells(monkeypatch: pytest.MonkeyP
 
     monkeypatch.setattr(api, "_API_KEY", "fake-key-for-test")
     monkeypatch.setattr(api.httpx2, "post", lambda *a, **k: FakeResponse())
-    legs = api._fetch_start_legs(Start(lat=10.7797, lng=106.6990))
+    legs = api._fetch_start_legs(Start(lat=10.7797, lng=106.6990), places=api._PLACES)
     assert legs == {api._PLACES[0].id: 5.0}

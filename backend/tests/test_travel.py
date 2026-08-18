@@ -40,12 +40,20 @@ def test_matrix_loads_and_matches_its_own_metadata() -> None:
 
 
 def test_lookup_prefers_the_matrix_over_the_formula() -> None:
-    """A place→place question with a known cell answers from the matrix."""
-    a, b = load_seed_places()[:2]
+    """A place→place question with a known cell answers from the matrix.
+
+    The matrix is sparse (k-nearest) since the 100-place import, so the test
+    samples a pair the file actually holds — including its reverse, to keep
+    exercising the ordered-pair (asymmetry) property — instead of assuming
+    any two seed rows are covered.
+    """
     matrix = load_travel_matrix()
+    by_id = {p.id: p for p in load_seed_places()}
+    a_id, b_id = next(pair for pair in matrix if (pair[1], pair[0]) in matrix)
+    a, b = by_id[a_id], by_id[b_id]
     fn = make_travel_time_fn(matrix)
-    assert fn(a, b) == matrix[(a.id, b.id)]
-    assert fn(b, a) == matrix[(b.id, a.id)]  # ordered pairs: both directions exist
+    assert fn(a, b) == matrix[(a_id, b_id)]
+    assert fn(b, a) == matrix[(b_id, a_id)]
 
 
 def test_missing_cell_falls_back_to_haversine() -> None:

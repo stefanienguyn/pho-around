@@ -31,6 +31,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from pho_engine import Itinerary, Start, load_seed_places, plan_itinerary
+from pho_engine.candidates import select_candidates
 from pho_engine.travel import load_travel_matrix, make_travel_time_fn
 
 logger = logging.getLogger(__name__)
@@ -117,11 +118,13 @@ def _waypoint(point: Start) -> dict:
     return {"waypoint": {"location": {"latLng": {"latitude": point.lat, "longitude": point.lng}}}}
 
 
-def _fetch_start_legs(start: Start) -> dict[str, float] | None:
-    """Fetch live, traffic-aware start→place minutes for every seed place.
+def _fetch_start_legs(start: Start, *, places: list) -> dict[str, float] | None:
+    """Fetch live, traffic-aware start→place minutes for the given places.
 
     Args:
         start: the request's starting point.
+        places: the candidate places for this request (post pre-filter, so
+            the call bills ~40 elements, not the whole seed).
 
     Returns:
         Map of place id → minutes, or None when the legs are unavailable (no
@@ -133,7 +136,7 @@ def _fetch_start_legs(start: Start) -> dict[str, float] | None:
         return None
     body = {
         "origins": [_waypoint(start)],
-        "destinations": [_waypoint(place) for place in _PLACES],
+        "destinations": [_waypoint(place) for place in places],
         "travelMode": TRAVEL_MODE,
         # Unlike the committed matrix, these 30 cells are cheap per-request —
         # so they get live traffic, the one place we can afford it.
@@ -152,7 +155,7 @@ def _fetch_start_legs(start: Start) -> dict[str, float] | None:
         for cell in response.json():
             if cell.get("condition") != "ROUTE_EXISTS" or "duration" not in cell:
                 continue
-            place_id = _PLACES[cell.get("destinationIndex", 0)].id
+            place_id = places[cell.get("destinationIndex", 0)].id
             legs[place_id] = int(cell["duration"].rstrip("s")) / 60.0
         return legs or None
     except (httpx2.HTTPError, ValueError, KeyError, IndexError) as exc:
@@ -226,13 +229,19 @@ def create_itinerary(request: ItineraryRequest) -> ItineraryResponse:
     request until the solver finished.
     """
     start = Start(lat=request.start.lat, lng=request.start.lng)
+    # The pre-filter keeps the MILP at ~40 candidates (start-relative: the
+    # nearest places + the best-scored far ones) — 100 unfiltered places blew
+    # the solver's time cap. See pho_engine/candidates.py.
+    candidates = select_candidates(_PLACES, start)
     itinerary = plan_itinerary(
-        _PLACES,
+        candidates,
         start,
         time_budget_min=request.time_budget_min,
         money_budget_vnd=request.money_budget_vnd,
         # Real travel times: committed matrix for place→place, live legs for
         # start→place, haversine as the floor (see pho_engine/travel.py).
-        travel_time_fn=make_travel_time_fn(_MATRIX, start_legs=_fetch_start_legs(start)),
+        travel_time_fn=make_travel_time_fn(
+            _MATRIX, start_legs=_fetch_start_legs(start, places=candidates)
+        ),
     )
     return _to_response(itinerary)
