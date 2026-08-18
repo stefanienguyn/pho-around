@@ -1,5 +1,14 @@
 import { formatDuration, formatVnd } from './format'
 
+// Deep link to the real Google Maps place page (photos, hours, reviews) —
+// zero API calls, opens the Maps app on phones. Name+district search lands
+// on the right place for our curated spots; upgrades to query_place_id if
+// the seed ever stores Google place ids.
+function mapsHref(place) {
+  const query = `${place.name}, ${place.district}, Hồ Chí Minh City`
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+}
+
 // The results region: stop cards joined by travel-leg connectors, so the
 // list reads as a route rather than a table of places. Hovering or
 // focusing a card highlights its map pin (and vice versa) through the
@@ -29,6 +38,15 @@ function StopCard({ stop, index, hot, onHoverStop }) {
         <p className="stop-meta">
           <span className="chip-mini">{stop.place.category}</span>
           stay {stop.place.avg_minutes} min
+          <a
+            className="maps-link"
+            href={mapsHref(stop.place)}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Open ${stop.place.name} in Google Maps`}
+          >
+            Google Maps ↗
+          </a>
         </p>
       </div>
       {/* The only yolk on screen. Free places say so — a "0 ₫" money pill

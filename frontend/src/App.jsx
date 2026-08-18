@@ -42,11 +42,42 @@ function App() {
     setHoveredStopId(null)
   }
 
+  // Locating = the browser is still asking the device; geoNote = a friendly
+  // explanation when location didn't work (denied/unavailable/timeout).
+  const [locating, setLocating] = useState(false)
+  const [geoNote, setGeoNote] = useState(null)
+
   // Map clicks arrive as raw floats; 5 decimals ≈ 1 m — plenty for a start pin.
   function handlePickStart(pickedLat, pickedLng) {
     setLat(pickedLat.toFixed(5))
     setLng(pickedLng.toFixed(5))
     setPicking(false)
+    setGeoNote(null)
+  }
+
+  // The browser's built-in Geolocation API — no Google, no key. The browser
+  // itself asks the user for permission; a "no" is a normal outcome (note +
+  // the map-tap path), never an error state.
+  function handleUseLocation() {
+    if (!('geolocation' in navigator)) {
+      setGeoNote('Location isn’t available in this browser — tap the map instead.')
+      return
+    }
+    setLocating(true)
+    setGeoNote(null)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocating(false)
+        handlePickStart(position.coords.latitude, position.coords.longitude)
+      },
+      () => {
+        setLocating(false)
+        setGeoNote('Couldn’t get your location — tap the map instead.')
+      },
+      // High accuracy = GPS on phones; the timeout keeps the button from
+      // spinning forever indoors.
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
   }
 
   // The one path to the API. Budgets arrive as arguments (not read from
@@ -152,6 +183,9 @@ function App() {
             onMoneyChange={setMoneyVnd}
             picking={picking}
             onMove={() => setPicking(true)}
+            locating={locating}
+            geoNote={geoNote}
+            onUseLocation={handleUseLocation}
             loading={loading}
             onSubmit={handleSubmit}
           />

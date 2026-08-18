@@ -425,6 +425,21 @@ form {
   cursor: pointer;
 }
 
+/* While locating: visibly inert. Disabled controls are exempt from the
+   contrast minimums, so ink-3 is allowed here. */
+.text-button:disabled {
+  color: var(--ink-3);
+  text-decoration: none;
+  cursor: default;
+}
+
+/* Geolocation outcome note — informational, not an error state. */
+.geo-note {
+  margin: var(--s-1) 0 0;
+  font: var(--t-sm);
+  color: var(--ink-2);
+}
+
 /* The coordinates disclosure — exact values are the point in here, so
    raw number fields survive only inside it. */
 .coords summary {
@@ -696,6 +711,7 @@ input[type='number'] {
 
 .stop-meta {
   display: flex;
+  flex-wrap: wrap; /* squeezed items drop to a new row whole, never mid-word */
   align-items: center;
   gap: var(--s-2);
   margin: var(--s-1) 0 0;
@@ -710,6 +726,17 @@ input[type='number'] {
   font: var(--t-micro);
   letter-spacing: var(--track-micro);
   color: var(--ink);
+}
+
+/* Deep link into the real Google Maps — quiet cobalt so cards stay calm.
+   Extra padding grows the touch area without moving the text. */
+.maps-link {
+  color: var(--cobalt);
+  font: var(--t-sm);
+  text-decoration: underline;
+  padding: var(--s-2) 0;
+  margin: calc(-1 * var(--s-2)) 0;
+  white-space: nowrap; /* "Google Maps ↗" is one unit — no orphaned arrow */
 }
 
 /* The only yolk on screen — money stays findable. */

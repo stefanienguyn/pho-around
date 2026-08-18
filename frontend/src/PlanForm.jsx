@@ -28,6 +28,9 @@ function PlanForm({
   onMoneyChange,
   picking,
   onMove,
+  locating,
+  geoNote,
+  onUseLocation,
   loading,
   onSubmit,
 }) {
@@ -54,7 +57,18 @@ function PlanForm({
           ) : (
             <span className="start-empty">Tap the map to set your start</span>
           )}
+          {/* Rendered in both start states: locate for the first time, or
+              re-locate after moving around. */}
+          <button
+            type="button"
+            className="text-button"
+            onClick={onUseLocation}
+            disabled={locating}
+          >
+            {locating ? 'Locating…' : 'Use my location'}
+          </button>
         </div>
+        {geoNote && <p className="geo-note">{geoNote}</p>}
         <details className="coords">
           <summary>Enter coordinates instead</summary>
           <div className="start-fields">
