@@ -53,3 +53,19 @@ def test_filter_is_start_relative() -> None:
     centre = [make_place(f"c{i}", lat=10.78 + i * 0.0004, lng=106.699) for i in range(50)]
     candidates = select_candidates(centre + d7_spots, d7_start)
     assert all(any(p.id == f"d7-{i}" for p in candidates) for i in range(5))
+
+
+def test_must_include_forces_a_place_through_both_doors() -> None:
+    """A required place survives even when it is neither near nor high-scoring.
+
+    Without this the pre-filter would drop it and the solver would then pin
+    visit[i]=1 on a place that never became a variable — infeasible by
+    construction, i.e. a silently empty plan for "we're definitely going here".
+    """
+    crowd = [make_place(f"near{i}", lat=10.78 + i * 0.0005, lng=106.699) for i in range(60)]
+    forgettable = make_place("far-and-dull", lat=10.70, lng=106.78, score=1.0)
+    places = crowd + [forgettable]
+
+    assert not any(p.id == "far-and-dull" for p in select_candidates(places, START_D1))
+    forced = select_candidates(places, START_D1, must_include=["far-and-dull"])
+    assert any(p.id == "far-and-dull" for p in forced)

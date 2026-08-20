@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 import api
 from api import app
 from pho_engine import Start
+from pho_engine.candidates import select_candidates
 
 client = TestClient(app)
 
@@ -148,3 +149,83 @@ def test_fetch_start_legs_parses_and_skips_bad_cells(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(api.httpx2, "post", lambda *a, **k: FakeResponse())
     legs = api._fetch_start_legs(Start(lat=10.7797, lng=106.6990), places=api._PLACES)
     assert legs == {api._PLACES[0].id: 5.0}
+
+
+# --- Constraints: the closed vocabulary at the HTTP boundary -----------------
+
+GENEROUS = {**VALID_REQUEST, "time_budget_min": 300, "money_budget_vnd": 2_000_000}
+
+
+def test_constraints_are_optional() -> None:
+    """A request with no constraints field is still valid — clients keep working."""
+    assert "constraints" not in VALID_REQUEST
+    assert client.post("/api/itinerary", json=VALID_REQUEST).status_code == 200
+
+
+def test_unknown_constraint_shapes_are_rejected() -> None:
+    """Unknown type, category, place id, or out-of-range factor → 422.
+
+    Nothing unvalidated may reach the model builder; this is the wall that
+    makes it safe to put a language model behind the endpoint later.
+    """
+    bad_payloads = [
+        {"type": "delete_everything"},
+        {"type": "exclude_category", "category": "karaoke"},
+        {"type": "require_place", "id": "not-a-real-place"},
+        {"type": "boost_category", "category": "coffee", "factor": 99},
+        {"type": "max_stops", "count": -1},
+    ]
+    for payload in bad_payloads:
+        resp = client.post("/api/itinerary", json={**VALID_REQUEST, "constraints": [payload]})
+        assert resp.status_code == 422, f"expected 422 for {payload}, got {resp.status_code}"
+
+
+def test_excluded_category_never_appears_in_the_plan() -> None:
+    """A hard filter removes the category before the model is even built."""
+    resp = client.post(
+        "/api/itinerary",
+        json={**GENEROUS, "constraints": [{"type": "exclude_category", "category": "landmark"}]},
+    )
+    assert resp.status_code == 200
+    categories = [stop["place"]["category"] for stop in resp.json()["stops"]]
+    assert "landmark" not in categories
+
+
+def test_required_place_survives_the_candidate_pre_filter() -> None:
+    """A required place outside the default ~40 candidates still gets visited.
+
+    Without must_include this is the designed-out bug: the place is filtered
+    away, then pinned with visit[i]=1 while absent from the model — infeasible
+    by construction, so the user's "we're definitely going here" would silently
+    become an empty plan.
+    """
+    start = Start(lat=VALID_REQUEST["start"]["lat"], lng=VALID_REQUEST["start"]["lng"])
+    default_ids = {place.id for place in select_candidates(api._PLACES, start)}
+    outsider = next(place for place in api._PLACES if place.id not in default_ids)
+
+    resp = client.post(
+        "/api/itinerary",
+        json={
+            **GENEROUS,
+            "constraints": [
+                {"type": "require_place", "id": outsider.id},
+                {"type": "max_stops", "count": 2},
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    assert outsider.id in [stop["place"]["id"] for stop in resp.json()["stops"]]
+
+
+def test_impossible_constraints_return_an_empty_plan_not_an_error() -> None:
+    """Constraints that fight each other → 200 with no stops, same as tight budgets."""
+    resp = client.post(
+        "/api/itinerary",
+        json={
+            **VALID_REQUEST,
+            "time_budget_min": 45,
+            "constraints": [{"type": "min_category", "category": "coffee", "count": 8}],
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["stops"] == []

@@ -15,6 +15,8 @@ with the human 2026-08-18; scale story in
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from pho_engine.distance import HasCoords, haversine_km
 from pho_engine.models import Place
 
@@ -25,7 +27,12 @@ K_BEST_FAR = 10
 
 
 def select_candidates(
-    places: list[Place], start: HasCoords, *, k_near: int = K_NEAREST, k_best: int = K_BEST_FAR
+    places: list[Place],
+    start: HasCoords,
+    *,
+    k_near: int = K_NEAREST,
+    k_best: int = K_BEST_FAR,
+    must_include: Iterable[str] = (),
 ) -> list[Place]:
     """Pick the places one request's solver run will consider.
 
@@ -34,11 +41,18 @@ def select_candidates(
         start: the request's start point — nearness is relative to it.
         k_near: how many nearest places form the backbone.
         k_best: how many top-scored non-near places get guaranteed seats.
+        must_include: place ids that must survive whatever the distance and
+            score doors decide — required places (``RequirePlace``). Without
+            this a required place could be filtered out and then pinned with
+            ``visit[i] = 1`` while absent from the model, which is infeasible
+            by construction.
 
     Returns:
-        At most ``k_near + k_best`` places, in original seed order (stable
-        ordering keeps runs reproducible and tests deterministic).
+        At most ``k_near + k_best`` places plus any forced ones, in original
+        seed order (stable ordering keeps runs reproducible and tests
+        deterministic).
     """
+    forced = set(must_include)
     if len(places) <= k_near + k_best:
         return list(places)
     by_distance = sorted(places, key=lambda p: haversine_km(start, p))
@@ -46,5 +60,5 @@ def select_candidates(
     far_best = sorted(
         (p for p in places if p.id not in near_ids), key=lambda p: p.score, reverse=True
     )[:k_best]
-    chosen = near_ids | {p.id for p in far_best}
+    chosen = near_ids | {p.id for p in far_best} | forced
     return [p for p in places if p.id in chosen]

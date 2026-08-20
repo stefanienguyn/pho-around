@@ -23,18 +23,37 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import Annotated, Literal
 
 import httpx2
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from pho_engine import Itinerary, Start, load_seed_places, plan_itinerary
 from pho_engine.candidates import select_candidates
+from pho_engine.constraints import (
+    BoostCategory,
+    Constraint,
+    ExcludeCategory,
+    ExcludePlace,
+    MaxCategory,
+    MaxStops,
+    MinCategory,
+    RequirePlace,
+    apply_constraints,
+)
+from pho_engine.models import CATEGORIES
 from pho_engine.travel import load_travel_matrix, make_travel_time_fn
 
 logger = logging.getLogger(__name__)
+
+# The seed places, loaded once at startup. They are immutable, so there is no
+# reason to re-read the JSON file per request. Loaded before the schemas below
+# because constraint validation checks place ids against it.
+_PLACES = load_seed_places()
+_PLACE_IDS = {place.id for place in _PLACES}
 
 # --- Request schemas: what clients send ----------------------------------
 
@@ -46,12 +65,139 @@ class StartIn(BaseModel):
     lng: float = Field(ge=-180, le=180, description="Longitude, decimal degrees")
 
 
+# --- Constraint schemas: the closed vocabulary a caller may send ----------
+#
+# One model per constraint type, joined into a *discriminated union*: the
+# ``type`` field says which shape to expect, so FastAPI validates the rest
+# against exactly that model and 422s anything else — unknown type, unknown
+# category, unknown place id, out-of-range factor. Nothing unvalidated reaches
+# the model builder, which is what makes it safe to put a language model behind
+# this endpoint later (see wiki concepts/llm-in-the-loop-planning).
+
+
+class _CategoryField(BaseModel):
+    """Mixin: a category that must be one of the engine's known six."""
+
+    category: str
+
+    @field_validator("category")
+    @classmethod
+    def _known_category(cls, value: str) -> str:
+        if value not in CATEGORIES:
+            raise ValueError(f"unknown category {value!r}; expected one of {sorted(CATEGORIES)}")
+        return value
+
+
+class _PlaceIdField(BaseModel):
+    """Mixin: a place id that must exist in the seed."""
+
+    id: str
+
+    @field_validator("id")
+    @classmethod
+    def _known_place(cls, value: str) -> str:
+        if value not in _PLACE_IDS:
+            raise ValueError(f"unknown place id {value!r}")
+        return value
+
+
+class BoostCategoryIn(_CategoryField):
+    """Soft taste: nudge a category's appeal. Clamped — a nudge, not a veto."""
+
+    type: Literal["boost_category"]
+    factor: float = Field(ge=0.5, le=1.5)
+
+    def to_engine(self) -> Constraint:
+        """Convert to the engine's constraint type."""
+        return BoostCategory(category=self.category, factor=self.factor)
+
+
+class ExcludeCategoryIn(_CategoryField):
+    """Hard filter: drop a whole category before the model is built."""
+
+    type: Literal["exclude_category"]
+
+    def to_engine(self) -> Constraint:
+        """Convert to the engine's constraint type."""
+        return ExcludeCategory(category=self.category)
+
+
+class ExcludePlaceIn(_PlaceIdField):
+    """Hard filter: drop one place."""
+
+    type: Literal["exclude_place"]
+
+    def to_engine(self) -> Constraint:
+        """Convert to the engine's constraint type."""
+        return ExcludePlace(id=self.id)
+
+
+class RequirePlaceIn(_PlaceIdField):
+    """Hard rule: this place must be in the plan."""
+
+    type: Literal["require_place"]
+
+    def to_engine(self) -> Constraint:
+        """Convert to the engine's constraint type."""
+        return RequirePlace(id=self.id)
+
+
+class MinCategoryIn(_CategoryField):
+    """Hard rule: at least ``count`` places of this category."""
+
+    type: Literal["min_category"]
+    count: int = Field(ge=0)
+
+    def to_engine(self) -> Constraint:
+        """Convert to the engine's constraint type."""
+        return MinCategory(category=self.category, count=self.count)
+
+
+class MaxCategoryIn(_CategoryField):
+    """Hard rule: at most ``count`` places of this category."""
+
+    type: Literal["max_category"]
+    count: int = Field(ge=0)
+
+    def to_engine(self) -> Constraint:
+        """Convert to the engine's constraint type."""
+        return MaxCategory(category=self.category, count=self.count)
+
+
+class MaxStopsIn(BaseModel):
+    """Hard rule: no more than ``count`` stops overall."""
+
+    type: Literal["max_stops"]
+    count: int = Field(ge=0)
+
+    def to_engine(self) -> Constraint:
+        """Convert to the engine's constraint type."""
+        return MaxStops(count=self.count)
+
+
+ConstraintIn = Annotated[
+    BoostCategoryIn
+    | ExcludeCategoryIn
+    | ExcludePlaceIn
+    | RequirePlaceIn
+    | MinCategoryIn
+    | MaxCategoryIn
+    | MaxStopsIn,
+    Field(discriminator="type"),
+]
+
+
 class ItineraryRequest(BaseModel):
     """A plan request: where you are, how long you have, what you can spend."""
 
     start: StartIn
     time_budget_min: float = Field(gt=0, description="Total minutes available")
     money_budget_vnd: int = Field(ge=0, description="Total spend allowed, in VND")
+    # Optional on purpose: every client shipped before constraints existed keeps
+    # working untouched, sending nothing.
+    constraints: list[ConstraintIn] = Field(
+        default_factory=list, description="Optional preference constraints"
+    )
 
 
 # --- Response schemas: what we promise back -------------------------------
@@ -89,10 +235,6 @@ class ItineraryResponse(BaseModel):
     total_minutes: float
     total_cost_vnd: int
 
-
-# The 30 seed places, loaded once at startup. They are immutable, so there is
-# no reason to re-read the JSON file per request.
-_PLACES = load_seed_places()
 
 # The committed place-to-place travel matrix (real motorbike minutes), loaded
 # once — like the seed, it only changes when the data files change.
@@ -229,10 +371,18 @@ def create_itinerary(request: ItineraryRequest) -> ItineraryResponse:
     request until the solver finished.
     """
     start = Start(lat=request.start.lat, lng=request.start.lng)
+    constraints = [constraint.to_engine() for constraint in request.constraints]
+    # Order matters. Exclusions are applied to the whole seed FIRST, so the
+    # pre-filter spends all ~40 candidate slots on places the user would
+    # actually accept; filtering afterwards would waste slots on places about
+    # to be dropped. Required places are then forced through the pre-filter —
+    # pinning visit[i]=1 on a place that never became a variable is infeasible
+    # by construction.
+    applied = apply_constraints(_PLACES, constraints=constraints)
     # The pre-filter keeps the MILP at ~40 candidates (start-relative: the
     # nearest places + the best-scored far ones) — 100 unfiltered places blew
     # the solver's time cap. See pho_engine/candidates.py.
-    candidates = select_candidates(_PLACES, start)
+    candidates = select_candidates(applied.pool, start, must_include=applied.required_ids)
     itinerary = plan_itinerary(
         candidates,
         start,
@@ -243,5 +393,6 @@ def create_itinerary(request: ItineraryRequest) -> ItineraryResponse:
         travel_time_fn=make_travel_time_fn(
             _MATRIX, start_legs=_fetch_start_legs(start, places=candidates)
         ),
+        constraints=constraints,
     )
     return _to_response(itinerary)

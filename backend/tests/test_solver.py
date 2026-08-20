@@ -5,6 +5,16 @@ wrong model fails loudly. Coordinates are chosen so haversine travel times are
 easy to reason about (points spread along a line of latitude/longitude).
 """
 
+import pytest
+
+from pho_engine.constraints import (
+    BoostCategory,
+    ExcludeCategory,
+    MaxCategory,
+    MaxStops,
+    MinCategory,
+    RequirePlace,
+)
 from pho_engine.models import Place, Start
 from pho_engine.solver import plan_itinerary
 
@@ -175,3 +185,204 @@ def test_no_candidate_places_yields_an_empty_itinerary() -> None:
     """An empty candidate list is a valid (empty) answer."""
     itin = plan_itinerary([], DEPOT, time_budget_min=120, money_budget_vnd=100000)
     assert itin.stops == ()
+
+
+# --- Constraints & variety (the LLM layer's deterministic half) --------------
+
+
+def make_categorised(id: str, *, category: str, score: float, lng: float) -> Place:
+    """A place whose category matters; near the depot so travel never binds."""
+    return Place(
+        id=id,
+        name=id,
+        category=category,
+        district="test",
+        price_per_person_vnd=0,
+        avg_minutes=10,
+        score=score,
+        lat=10.0,
+        lng=lng,
+    )
+
+
+# Two categories, interleaved, all reachable: coffee scores slightly higher, so
+# an unconstrained plan takes coffee first and variety is the only thing that
+# can pull a food place in.
+VARIETY_CASE = [
+    make_categorised("coffee-a", category="coffee", score=4.6, lng=106.001),
+    make_categorised("coffee-b", category="coffee", score=4.5, lng=106.002),
+    make_categorised("coffee-c", category="coffee", score=4.4, lng=106.003),
+    make_categorised("food-a", category="food", score=4.3, lng=106.004),
+]
+
+
+def test_variety_penalty_breaks_up_a_single_category_run() -> None:
+    """Three near-identical cafés → the default objective reaches for the food.
+
+    Without the penalty the top three scores are all coffee. Charging 0.3 for
+    each repeat makes the third coffee (4.4 - 0.3 - 0.3) worth less than the
+    food place (4.3), so a sane afternoon appears on its own.
+    """
+    itin = plan_itinerary(
+        VARIETY_CASE, DEPOT, time_budget_min=90, money_budget_vnd=0, stop_buffer_min=0
+    )
+    categories = [s.place.category for s in itin.stops]
+    assert "food" in categories, f"expected variety, got {categories}"
+
+
+def test_variety_is_soft_not_a_cap() -> None:
+    """With the penalty off, the same instance happily stacks one category.
+
+    Proves the penalty is what changed the plan (not the budgets), and that
+    repeats remain *possible* — taste is soft.
+    """
+    itin = plan_itinerary(
+        VARIETY_CASE,
+        DEPOT,
+        time_budget_min=90,
+        money_budget_vnd=0,
+        stop_buffer_min=0,
+        variety_penalties={},
+    )
+    assert [s.place.category for s in itin.stops].count("coffee") == 3
+
+
+def test_boost_shifts_the_choice_without_forcing_it() -> None:
+    """A category boost lifts effective appeal enough to win a money-forced pick."""
+    coffee = make_categorised("coffee", category="coffee", score=4.0, lng=106.001)
+    food = make_categorised("food", category="food", score=4.4, lng=106.002)
+    both = [coffee, food]
+    priced = [Place(**{**vars(p), "price_per_person_vnd": 100000, "tags": p.tags}) for p in both]
+    plain = plan_itinerary(priced, DEPOT, time_budget_min=120, money_budget_vnd=100000)
+    assert plain.place_ids == ["food"], "unboosted, the higher raw score wins"
+
+    boosted = plan_itinerary(
+        priced,
+        DEPOT,
+        time_budget_min=120,
+        money_budget_vnd=100000,
+        constraints=[BoostCategory(category="coffee", factor=1.25)],
+    )
+    assert boosted.place_ids == ["coffee"], "4.0 * 1.25 = 5.0 should now outrank 4.4"
+    # Raw appeal is reported, never the weighted number the objective traded in.
+    assert boosted.total_score == 4.0
+
+
+def test_epsilon_still_protects_a_better_place_when_scores_are_weighted() -> None:
+    """The July swap bug, re-armed by category boosts (the epsilon trap).
+
+    Boosting the near place's category narrows the effective gap to 0.025
+    (4.4 vs 3.5 * 1.25 = 4.375). An epsilon sized from *raw* scores would be
+    large enough to prefer the near, worse place; sized from effective scores
+    it cannot. Money forces exactly one pick, as in the original regression.
+    """
+    good = make_place("good", score=4.4, price=100000, minutes=10, lng=106.5)
+    meh = make_categorised("meh", category="coffee", score=3.5, lng=106.005)
+    meh = Place(**{**vars(meh), "price_per_person_vnd": 100000})
+    itin = plan_itinerary(
+        [good, meh],
+        DEPOT,
+        time_budget_min=120,
+        money_budget_vnd=100000,
+        speed_kmh=40,
+        constraints=[BoostCategory(category="coffee", factor=1.25)],
+    )
+    assert itin.place_ids == ["good"], "epsilon must not swap away the better place"
+
+
+def test_exclusions_and_requirements_are_honoured() -> None:
+    """exclude_category removes a whole category; require_place pins one in."""
+    excluded = plan_itinerary(
+        VARIETY_CASE,
+        DEPOT,
+        time_budget_min=90,
+        money_budget_vnd=0,
+        stop_buffer_min=0,
+        constraints=[ExcludeCategory(category="coffee")],
+    )
+    assert excluded.place_ids == ["food-a"]
+
+    required = plan_itinerary(
+        VARIETY_CASE,
+        DEPOT,
+        time_budget_min=25,  # only room for one stop
+        money_budget_vnd=0,
+        stop_buffer_min=0,
+        constraints=[RequirePlace(id="coffee-c")],
+    )
+    assert "coffee-c" in required.place_ids, "a required place must appear"
+
+
+def test_category_bounds_and_max_stops_are_honoured() -> None:
+    """min/max per category and the overall stop ceiling each bind."""
+    capped = plan_itinerary(
+        VARIETY_CASE,
+        DEPOT,
+        time_budget_min=90,
+        money_budget_vnd=0,
+        stop_buffer_min=0,
+        constraints=[MaxCategory(category="coffee", count=1)],
+    )
+    assert [s.place.category for s in capped.stops].count("coffee") == 1
+
+    two_stops = plan_itinerary(
+        VARIETY_CASE,
+        DEPOT,
+        time_budget_min=90,
+        money_budget_vnd=0,
+        stop_buffer_min=0,
+        constraints=[MaxStops(count=2)],
+    )
+    assert len(two_stops.stops) == 2
+
+    with_food = plan_itinerary(
+        VARIETY_CASE,
+        DEPOT,
+        time_budget_min=40,
+        money_budget_vnd=0,
+        stop_buffer_min=0,
+        constraints=[MinCategory(category="food", count=1)],
+    )
+    assert "food-a" in with_food.place_ids
+
+
+def test_requiring_a_place_outside_the_candidate_set_fails_loudly() -> None:
+    """Pinning a place that never became a variable is a caller bug, not a plan.
+
+    The API layer force-includes required ids in the candidate set; if that
+    ever regresses we want a loud error, not a silently dropped requirement.
+    """
+    with pytest.raises(ValueError, match="required places absent"):
+        plan_itinerary(
+            VARIETY_CASE,
+            DEPOT,
+            time_budget_min=90,
+            money_budget_vnd=0,
+            constraints=[RequirePlace(id="not-in-this-list")],
+        )
+
+
+def test_satiation_rate_differs_by_category() -> None:
+    """Landmarks may repeat cheaply; coffee may not — the per-category rate.
+
+    Four places, money forces exactly three. Repeating landmarks costs 0.2 and
+    repeating coffee costs 1.0, so the best three are both landmarks plus the
+    better coffee — never two coffees. A single global penalty could not
+    express this: it would either wave both repeats through or block both.
+    """
+    priced = [
+        Place(**{**vars(p), "price_per_person_vnd": 100000})
+        for p in (
+            make_categorised("landmark-a", category="landmark", score=4.5, lng=106.001),
+            make_categorised("landmark-b", category="landmark", score=4.4, lng=106.002),
+            make_categorised("coffee-a", category="coffee", score=4.5, lng=106.003),
+            make_categorised("coffee-b", category="coffee", score=4.4, lng=106.004),
+        )
+    ]
+    itin = plan_itinerary(
+        priced, DEPOT, time_budget_min=120, money_budget_vnd=300000, stop_buffer_min=0
+    )
+    categories = [s.place.category for s in itin.stops]
+    assert len(itin.stops) == 3
+    assert categories.count("landmark") == 2, f"landmarks repeat cheaply, got {categories}"
+    assert categories.count("coffee") == 1, f"coffee should not repeat, got {categories}"
