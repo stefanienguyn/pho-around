@@ -359,11 +359,24 @@ def _extract_itinerary(
     ``total_minutes`` charges the same per-stop buffer the time constraint did, so
     the reported cost matches what was actually budgeted.
     """
-    if pulp.LpStatus[prob.status] != "Optimal":
+    # "Optimal" means CBC proved no better route exists. "Not Solved" is what it
+    # reports when the time limit stopped the search — but the incumbent it holds
+    # is still a *feasible* integer solution: branch and bound loses the
+    # optimality proof, never the budget guarantees. Returning that slightly
+    # unproven plan beats returning nothing.
+    #
+    # Found on Render's 0.1-CPU free tier, where a 4-hour query exceeds the cap:
+    # the API answered "nothing fits your budgets" while holding a route scoring
+    # 27.7. Note PuLP's own ``sol_status`` says "No Solution Found" here, so the
+    # populated objective is the honest signal.
+    if pulp.LpStatus[prob.status] not in ("Optimal", "Not Solved"):
+        return Itinerary(stops=(), total_score=0.0, total_minutes=0.0, total_cost_vnd=0)
+    if pulp.value(prob.objective) is None:
         return Itinerary(stops=(), total_score=0.0, total_minutes=0.0, total_cost_vnd=0)
 
-    # Map each used edge tail->head (variable values are 0/1; guard with > 0.5).
-    next_of = {i: j for (i, j) in travel if pulp.value(go[(i, j)]) > 0.5}
+    # Map each used edge tail->head. Values are 0/1 when a solution exists and
+    # None when the search found nothing at all, hence the `or 0`.
+    next_of = {i: j for (i, j) in travel if (pulp.value(go[(i, j)]) or 0) > 0.5}
 
     stops: list[Stop] = []
     total_score = 0.0

@@ -12,7 +12,13 @@ import './App.css'
 const DEFAULT_TIME_MIN = '120'
 const DEFAULT_MONEY_VND = '200000'
 
-const API_URL = 'http://127.0.0.1:8000/api/itinerary'
+// Where the backend lives — different per environment, so it comes from
+// configuration rather than the code. Vite substitutes import.meta.env at
+// BUILD time (the value is baked into the bundle), which is why changing it
+// means a redeploy, not a restart. Defaults to the local backend so
+// `npm run dev` works with no setup.
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
+const API_URL = `${API_BASE}/api/itinerary`
 
 function App() {
   // Inputs always yield strings; keep state as strings and convert to

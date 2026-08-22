@@ -229,3 +229,21 @@ def test_impossible_constraints_return_an_empty_plan_not_an_error() -> None:
     )
     assert resp.status_code == 200
     assert resp.json()["stops"] == []
+
+
+# --- Deployment configuration ------------------------------------------------
+
+
+def test_allowlist_keeps_dev_origins_and_adds_configured_ones() -> None:
+    """ALLOWED_ORIGINS is parsed leniently; dev origins always survive.
+
+    The deployed frontend's origin differs per environment, so it arrives
+    through configuration rather than being hardcoded. Blank values (the
+    local case) must not produce an empty-string origin.
+    """
+    assert api.allowed_origins(None) == api.VITE_DEV_ORIGINS
+    assert api.allowed_origins("") == api.VITE_DEV_ORIGINS
+    assert api.allowed_origins("  ") == api.VITE_DEV_ORIGINS
+
+    configured = api.allowed_origins(" https://pho.vercel.app , https://www.pho.app ")
+    assert configured == [*api.VITE_DEV_ORIGINS, "https://pho.vercel.app", "https://www.pho.app"]

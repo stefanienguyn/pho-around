@@ -248,6 +248,14 @@ _API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY")
 if not _API_KEY:
     logger.warning("GOOGLE_MAPS_API_KEY not set — start legs will use the haversine fallback")
 
+# How long CBC may search, per request. Tunable per environment because CPU is:
+# a laptop proves optimality on the 40-candidate instance in ~3.5 s, while
+# Render's free tier (~0.1 CPU) cannot. Since the engine now returns the best
+# route found rather than discarding an unproven one, this is a quality/latency
+# dial, not a cliff — a lower value answers sooner with a slightly less polished
+# plan.
+SOLVER_TIME_LIMIT_S = int(os.environ.get("SOLVER_TIME_LIMIT_S", "10"))
+
 ROUTES_MATRIX_URL = "https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix"
 # Must match the mode the committed matrix was built with (_meta in the JSON).
 TRAVEL_MODE = "TWO_WHEELER"
@@ -312,17 +320,38 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# The only browser origins allowed to call this API cross-origin: the Vite
-# dev server. CORS controls which *pages* a browser lets read our responses;
-# it is not authentication (curl and scripts are unaffected by it).
+# Browser origins allowed to call this API cross-origin. The Vite dev servers
+# are always allowed; a deployment adds its own origin through the
+# ALLOWED_ORIGINS environment variable, because the frontend's URL differs per
+# environment and must not be hardcoded here.
+#
+# CORS controls which *pages* a browser lets read our responses; it is not
+# authentication (curl and scripts ignore it entirely), which is also why
+# keeping the dev origins in production costs nothing.
 VITE_DEV_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 
+
+def allowed_origins(raw: str | None) -> list[str]:
+    """Build the CORS allowlist from the environment.
+
+    Args:
+        raw: the ALLOWED_ORIGINS value — a comma-separated list of origins,
+            or None/empty when only local development is in play.
+
+    Returns:
+        The dev origins plus any configured ones, blanks and stray whitespace
+        discarded.
+    """
+    configured = [origin.strip() for origin in (raw or "").split(",") if origin.strip()]
+    return [*VITE_DEV_ORIGINS, *configured]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=VITE_DEV_ORIGINS,
+    allow_origins=allowed_origins(os.environ.get("ALLOWED_ORIGINS")),
     allow_methods=["POST"],
     allow_headers=["Content-Type"],
 )
@@ -394,5 +423,6 @@ def create_itinerary(request: ItineraryRequest) -> ItineraryResponse:
             _MATRIX, start_legs=_fetch_start_legs(start, places=candidates)
         ),
         constraints=constraints,
+        time_limit_s=SOLVER_TIME_LIMIT_S,
     )
     return _to_response(itinerary)
