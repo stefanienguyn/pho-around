@@ -3,7 +3,7 @@
 import time
 
 from pho_engine import Start, load_seed_places, plan_itinerary
-from pho_engine.candidates import select_candidates
+from pho_engine.candidates import K_BEST_FAR, K_NEAREST, select_candidates
 
 # A start point in the District 1 core (near Nhà Thờ Đức Bà).
 DISTRICT_1 = Start(lat=10.7797, lng=106.6990, name="District 1")
@@ -20,7 +20,7 @@ def test_realistic_query_respects_all_constraints() -> None:
     filter IS the production architecture, so it's what this test times.
     """
     places = select_candidates(load_seed_places(), DISTRICT_1)
-    assert len(places) == 40
+    assert len(places) == K_NEAREST + K_BEST_FAR
 
     started = time.perf_counter()
     itin = plan_itinerary(

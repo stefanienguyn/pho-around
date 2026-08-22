@@ -20,10 +20,25 @@ from collections.abc import Iterable
 from pho_engine.distance import HasCoords, haversine_km
 from pho_engine.models import Place
 
-# ~40 keeps CBC in its ~2-3 s comfort zone (measured: 100 places blew the
-# 10 s cap; 37 solved in 2.3 s).
-K_NEAREST = 30
-K_BEST_FAR = 10
+# 25 candidates, measured across five start/budget scenarios (2026-08-18).
+#
+# The first cut was 40, chosen when 100 places blew the solver's 10 s cap. Real
+# deployment disproved it: on a 0.1-CPU instance a 40-candidate instance either
+# times out with a poor plan or — for District 7 and District 3 starts — fails
+# to find *any* feasible solution before the cap, i.e. an empty plan for the
+# user. Measured under equivalent CPU pressure:
+#
+#   pool 40 → 17.6 appeal (D1 4h) and 0.0 (D7, D3): unusable
+#   pool 30 → worst case 86.7% of its own best
+#   pool 25 → worst case 98.7% of its own best, and beat pool 30 in absolute
+#             appeal in every pressured scenario
+#
+# Unlimited CPU slightly favours bigger pools (a wider net can score higher),
+# but that ceiling is unreachable on modest hardware — so the default is the
+# number that *delivers*, not the one that looks best on a fast laptop. Raise
+# `k_near`/`k_best` per call if the deployment ever gets real CPU.
+K_NEAREST = 18
+K_BEST_FAR = 7
 
 
 def select_candidates(

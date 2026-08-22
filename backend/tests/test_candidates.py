@@ -1,6 +1,6 @@
 """Tests for the candidate pre-filter (the solver's guest list)."""
 
-from pho_engine.candidates import select_candidates
+from pho_engine.candidates import K_BEST_FAR, K_NEAREST, select_candidates
 from pho_engine.models import Place, Start
 from pho_engine.seed import load_seed_places
 
@@ -28,10 +28,14 @@ def test_small_datasets_pass_through_unfiltered() -> None:
     assert select_candidates(places, START_D1) == places
 
 
-def test_full_seed_is_capped_at_forty() -> None:
-    """100 seed places → at most k_near + k_best candidates."""
+def test_full_seed_is_capped_at_the_pool_size() -> None:
+    """100 seed places → exactly k_near + k_best candidates.
+
+    The cap is what keeps the MILP solvable on modest hardware; see the
+    measurement in candidates.py for why it is 25 and not 40.
+    """
     candidates = select_candidates(load_seed_places(), START_D1)
-    assert len(candidates) == 40
+    assert len(candidates) == K_NEAREST + K_BEST_FAR
 
 
 def test_far_high_scorer_gets_a_guaranteed_seat() -> None:
