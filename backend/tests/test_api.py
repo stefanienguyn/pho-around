@@ -123,6 +123,7 @@ def test_routes_outage_degrades_instead_of_failing(monkeypatch: pytest.MonkeyPat
     def boom(*args: object, **kwargs: object) -> object:
         raise httpx2.ConnectError("routes is down")
 
+    monkeypatch.setattr(api, "USE_LIVE_START_LEGS", True)
     monkeypatch.setattr(api, "_API_KEY", "fake-key-for-test")
     monkeypatch.setattr(api.httpx2, "post", boom)
     resp = client.post("/api/itinerary", json=VALID_REQUEST)
@@ -145,6 +146,7 @@ def test_fetch_start_legs_parses_and_skips_bad_cells(monkeypatch: pytest.MonkeyP
                 {"destinationIndex": 1, "condition": "ROUTE_NOT_FOUND"},
             ]
 
+    monkeypatch.setattr(api, "USE_LIVE_START_LEGS", True)
     monkeypatch.setattr(api, "_API_KEY", "fake-key-for-test")
     monkeypatch.setattr(api.httpx2, "post", lambda *a, **k: FakeResponse())
     legs = api._fetch_start_legs(Start(lat=10.7797, lng=106.6990), places=api._PLACES)
@@ -247,3 +249,24 @@ def test_allowlist_keeps_dev_origins_and_adds_configured_ones() -> None:
 
     configured = api.allowed_origins(" https://pho.vercel.app , https://www.pho.app ")
     assert configured == [*api.VITE_DEV_ORIGINS, "https://pho.vercel.app", "https://www.pho.app"]
+
+
+def test_live_start_legs_are_off_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The default build spends nothing on Routes, even with a key present.
+
+    The start legs are the only per-user-action Google cost (~25 Compute Route
+    Matrix elements a click). They stay off unless USE_LIVE_START_LEGS is set,
+    and the plan is built from the committed matrix + the calibrated haversine
+    estimate instead.
+    """
+
+    def must_not_be_called(*args: object, **kwargs: object) -> object:
+        raise AssertionError("the default build must not call the Routes API")
+
+    monkeypatch.setattr(api, "_API_KEY", "fake-key-for-test")
+    monkeypatch.setattr(api.httpx2, "post", must_not_be_called)
+
+    assert api._fetch_start_legs(Start(lat=10.7797, lng=106.6990), places=api._PLACES) is None
+    resp = client.post("/api/itinerary", json=VALID_REQUEST)
+    assert resp.status_code == 200
+    assert resp.json()["stops"], "a route must still be planned without live legs"

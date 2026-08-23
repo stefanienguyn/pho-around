@@ -262,6 +262,25 @@ TRAVEL_MODE = "TWO_WHEELER"
 # Cap on how long the live call may hold up a response; past this we fall back.
 LIVE_LEGS_TIMEOUT_S = 1.5
 
+# Whether to buy live, traffic-aware times for the start->place legs.
+#
+# OFF BY DEFAULT, because this is the app's only recurring Google cost and the
+# only one billed per user action: ~25 elements per plan on the Compute Route
+# Matrix Enterprise SKU, roughly $0.33 a click at the rate observed in August
+# 2026 ($106.01 for 8,067 elements). Place-to-place times cost nothing forever;
+# they live in the committed matrix.
+#
+# What switching it off costs: the start leg falls back to the haversine
+# estimate at the measured city speed. Checked against all 1,988 real legs in
+# the matrix, that estimate is a median 1.7 min out, within 5 min on 99% of
+# legs, worst case 8.8 min (Thao Dien, where the river makes crow-flight lie).
+# One leg out of six inside a multi-hour plan is not worth a per-click bill.
+#
+# Set USE_LIVE_START_LEGS=true wherever the accuracy is worth the spend.
+USE_LIVE_START_LEGS = os.environ.get("USE_LIVE_START_LEGS", "false").lower() == "true"
+if USE_LIVE_START_LEGS:
+    logger.warning("live start legs ENABLED - each request bills ~25 Routes API elements")
+
 
 def _waypoint(point: Start) -> dict:
     """Shape one lat/lng into the Routes API's waypoint structure."""
@@ -274,22 +293,23 @@ def _fetch_start_legs(start: Start, *, places: list) -> dict[str, float] | None:
     Args:
         start: the request's starting point.
         places: the candidate places for this request (post pre-filter, so
-            the call bills ~40 elements, not the whole seed).
+            the call bills ~25 elements, not the whole seed).
 
     Returns:
-        Map of place id → minutes, or None when the legs are unavailable (no
-        key, timeout, HTTP error, malformed response) — the caller then relies
-        on the haversine fallback. Failures are logged, never raised: a route
+        Map of place id → minutes, or None when the legs are unavailable —
+        switched off (the default, see :data:`USE_LIVE_START_LEGS`), no key,
+        timeout, HTTP error, or malformed response. The caller then relies on
+        the haversine fallback. Failures are logged, never raised: a route
         with estimated start legs beats no route (graceful degradation).
     """
-    if not _API_KEY:
+    if not USE_LIVE_START_LEGS or not _API_KEY:
         return None
     body = {
         "origins": [_waypoint(start)],
         "destinations": [_waypoint(place) for place in places],
         "travelMode": TRAVEL_MODE,
-        # Unlike the committed matrix, these 30 cells are cheap per-request —
-        # so they get live traffic, the one place we can afford it.
+        # Live traffic is the whole reason to pay for these cells; without it
+        # the committed matrix would already be the better answer.
         "routingPreference": "TRAFFIC_AWARE",
     }
     headers = {
