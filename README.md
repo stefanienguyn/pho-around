@@ -12,9 +12,8 @@ Most "where to eat" apps are searchable lists. Phở around treats an afternoon 
 **optimization problem**: it picks a subset of ~100 curated places and orders them into the
 best route that fits your time and money — using real Operations Research, not a sorted list.
 
-<!-- Add a screenshot: save an image to docs/screenshot.png and uncomment:
-![Phở around](docs/screenshot.png)
--->
+![Phở around: a start point in District 1 with time and money budgets on the left, and the
+optimized three-stop route drawn on the map on the right](docs/screenshot.png)
 
 ## How it works
 
