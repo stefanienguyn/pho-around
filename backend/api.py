@@ -27,7 +27,7 @@ from typing import Annotated, Literal
 
 import httpx2
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
@@ -46,6 +46,7 @@ from pho_engine.constraints import (
 )
 from pho_engine.models import CATEGORIES
 from pho_engine.travel import load_travel_matrix, make_travel_time_fn
+from rate_limit import enforce_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -410,7 +411,14 @@ def _to_response(itinerary: Itinerary) -> ItineraryResponse:
     )
 
 
-@app.post("/api/itinerary", response_model=ItineraryResponse)
+@app.post(
+    "/api/itinerary",
+    response_model=ItineraryResponse,
+    # Enforced as a dependency so an over-limit caller is refused before the
+    # solver is ever reached. Rejecting costs ~1 ms; serving costs seconds of
+    # a CPU we own a tenth of, and that asymmetry is the whole defence.
+    dependencies=[Depends(enforce_rate_limit)],
+)
 def create_itinerary(request: ItineraryRequest) -> ItineraryResponse:
     """Compute the best itinerary for the given start point and budgets.
 

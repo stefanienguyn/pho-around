@@ -10,11 +10,25 @@ import pytest
 from fastapi.testclient import TestClient
 
 import api
+import rate_limit
 from api import app
 from pho_engine import Start
 from pho_engine.candidates import select_candidates
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limit_allowance() -> None:
+    """Give every test its own allowance.
+
+    The limiter is process-global and every ``TestClient`` request presents
+    the same identity, so without this the file's requests would accumulate
+    into one bucket and later tests would start receiving 429s for calls made
+    by earlier ones.
+    """
+    rate_limit.limiter.clear()
+
 
 # The same realistic query as tests/test_engine_e2e.py, on purpose: if that
 # test passes and these fail, the bug is in the HTTP layer, not the engine.
@@ -270,3 +284,60 @@ def test_live_start_legs_are_off_by_default(monkeypatch: pytest.MonkeyPatch) -> 
     resp = client.post("/api/itinerary", json=VALID_REQUEST)
     assert resp.status_code == 200
     assert resp.json()["stops"], "a route must still be planned without live legs"
+
+
+# These tests fire the whole allowance several times over, so they use a
+# one-minute budget: nothing fits, the solve returns almost immediately, and
+# the limiter — which runs in the dependency, before the handler — is exercised
+# just as well. Planning real routes here would add ~30 s to the suite to test
+# code that never runs.
+CHEAP_REQUEST = {**VALID_REQUEST, "time_budget_min": 1}
+
+
+def test_over_the_limit_gets_429_with_retry_after() -> None:
+    """Past the allowance the API refuses, and says when to come back.
+
+    The point is that the refusal happens in the dependency, so an abusive
+    caller never reaches the solver — which is the expensive thing this
+    protects.
+    """
+    hop = {"X-Forwarded-For": "203.0.113.50"}
+
+    for _ in range(rate_limit.RATE_LIMIT_PER_MINUTE):
+        assert client.post("/api/itinerary", json=CHEAP_REQUEST, headers=hop).status_code == 200
+
+    resp = client.post("/api/itinerary", json=CHEAP_REQUEST, headers=hop)
+    assert resp.status_code == 429
+    assert int(resp.headers["Retry-After"]) >= 1
+
+
+def test_two_clients_get_separate_allowances() -> None:
+    """One noisy visitor must not lock everyone else out.
+
+    Without proxy-aware identification this is exactly what would happen: all
+    requests arrive from the host's proxy, so they would share one bucket.
+    """
+    noisy = {"X-Forwarded-For": "203.0.113.50"}
+    quiet = {"X-Forwarded-For": "198.51.100.7"}
+
+    for _ in range(rate_limit.RATE_LIMIT_PER_MINUTE + 1):
+        client.post("/api/itinerary", json=CHEAP_REQUEST, headers=noisy)
+
+    assert client.post("/api/itinerary", json=CHEAP_REQUEST, headers=noisy).status_code == 429
+    assert client.post("/api/itinerary", json=CHEAP_REQUEST, headers=quiet).status_code == 200
+
+
+def test_a_forged_forwarded_header_cannot_win_a_fresh_allowance() -> None:
+    """Rotating the client-supplied hop must not reset the count.
+
+    ``X-Forwarded-For`` is appended to, not replaced, so everything left of
+    our proxy's entry is attacker-controlled. Keying on the leftmost value —
+    the usual advice — would make the limiter trivially bypassable.
+    """
+    for i in range(rate_limit.RATE_LIMIT_PER_MINUTE):
+        forged = {"X-Forwarded-For": f"10.0.0.{i}, 203.0.113.50"}
+        assert client.post("/api/itinerary", json=CHEAP_REQUEST, headers=forged).status_code == 200
+
+    another_forgery = {"X-Forwarded-For": "10.0.0.99, 203.0.113.50"}
+    resp = client.post("/api/itinerary", json=CHEAP_REQUEST, headers=another_forgery)
+    assert resp.status_code == 429, "the trusted rightmost hop is what counts"
