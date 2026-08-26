@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import AskBox from './AskBox'
 import MapView from './MapView'
 import PlanForm from './PlanForm'
 import { Results, TotalsBar } from './Results'
@@ -19,6 +20,7 @@ const DEFAULT_MONEY_VND = '200000'
 // `npm run dev` works with no setup.
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
 const API_URL = `${API_BASE}/api/itinerary`
+const INTERPRET_URL = `${API_BASE}/api/interpret`
 
 function App() {
   // Inputs always yield strings; keep state as strings and convert to
@@ -50,6 +52,16 @@ function App() {
 
   // Locating = the browser is still asking the device; geoNote = a friendly
   // explanation when location didn't work (denied/unavailable/timeout).
+  // What the person asked for in words, and what we understood it to mean.
+  // The constraint list IS this feature's memory: it rides along on the next
+  // interpret call so a follow-up ("make it 2 coffees") edits it instead of
+  // starting over — no server-side session, nothing stored anywhere.
+  const [ask, setAsk] = useState('')
+  const [constraints, setConstraints] = useState([])
+  const [askReply, setAskReply] = useState(null)
+  const [askDropped, setAskDropped] = useState(0)
+  const [asking, setAsking] = useState(false)
+  const [askError, setAskError] = useState(null)
   const [locating, setLocating] = useState(false)
   const [geoNote, setGeoNote] = useState(null)
 
@@ -89,7 +101,53 @@ function App() {
   // The one path to the API. Budgets arrive as arguments (not read from
   // state) so callers that just changed them — the empty panel's
   // adjustment chips — aren't racing React's async state updates.
-  async function runPlan(timeBudgetMin, moneyBudgetVnd) {
+  // Words -> constraints. Deliberately does NOT plan: /api/itinerary stays a
+  // pure function of its input, so the solver never depends on a model call.
+  async function runInterpret(message) {
+    setAsking(true)
+    setAskError(null)
+    try {
+      const res = await fetch(INTERPRET_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, constraints }),
+      })
+      if (!res.ok) {
+        // 503 means the feature simply isn't switched on in this deployment;
+        // the sliders still work, so say that rather than showing a failure.
+        throw new Error(
+          res.status === 503
+            ? "Asking isn't switched on here — use the sliders"
+            : "Couldn't read that — try again, or use the sliders",
+        )
+      }
+      const data = await res.json()
+      setConstraints(data.constraints)
+      setAskReply(data.reply)
+      setAskDropped(data.dropped)
+      setAsk('')
+      // Re-plan straight away when there's somewhere to start from, so the
+      // route visibly answers the sentence.
+      if (lat && lng) {
+        runPlan(Number(timeMin), Number(moneyVnd), data.constraints)
+      }
+    } catch (err) {
+      setAskError(err.message)
+    } finally {
+      setAsking(false)
+    }
+  }
+
+  function clearConstraints() {
+    setConstraints([])
+    setAskReply(null)
+    setAskDropped(0)
+    if (lat && lng) {
+      runPlan(Number(timeMin), Number(moneyVnd), [])
+    }
+  }
+
+  async function runPlan(timeBudgetMin, moneyBudgetVnd, withConstraints = constraints) {
     setLoading(true)
     setError(null)
     setItinerary(null)
@@ -101,6 +159,7 @@ function App() {
           start: { lat: Number(lat), lng: Number(lng) },
           time_budget_min: timeBudgetMin,
           money_budget_vnd: moneyBudgetVnd,
+          constraints: withConstraints,
         }),
       })
       // fetch only rejects when no response happened at all (network, CORS);
@@ -194,6 +253,17 @@ function App() {
             onUseLocation={handleUseLocation}
             loading={loading}
             onSubmit={handleSubmit}
+          />
+          <AskBox
+            value={ask}
+            onChange={setAsk}
+            onSubmit={runInterpret}
+            asking={asking}
+            reply={askReply}
+            constraints={constraints}
+            dropped={askDropped}
+            error={askError}
+            onClear={clearConstraints}
           />
         </section>
         <div className="map-region">

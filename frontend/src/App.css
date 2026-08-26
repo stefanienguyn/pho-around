@@ -923,3 +923,115 @@ input[type='number'] {
     display: none;
   }
 }
+
+/* --- Ask box: a sentence in, constraints out -----------------------------
+   Provisional. Built for the demo and restyled in the UI redesign; every
+   value below still comes from a token so it doesn't look pasted in. */
+
+.ask {
+  margin-top: var(--s-5);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line-soft);
+}
+
+.ask-label {
+  display: block;
+  font: var(--t-micro);
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: var(--s-2);
+}
+
+.ask-row {
+  display: flex;
+  gap: var(--s-2);
+}
+
+.ask-input {
+  flex: 1;
+  min-width: 0;
+  font: var(--t-body);
+  color: var(--ink);
+  background: var(--card);
+  border: var(--border-thin);
+  border-radius: var(--r-sm);
+  padding: var(--s-2) var(--s-3);
+}
+
+.ask-input::placeholder {
+  color: var(--ink-3);
+}
+
+.ask-input:focus-visible,
+.ask-go:focus-visible,
+.ask-clear:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}
+
+.ask-go {
+  font: var(--t-sm-strong);
+  color: var(--paper);
+  background: var(--ink);
+  border: var(--border-thin);
+  border-radius: var(--r-sm);
+  padding: var(--s-2) var(--s-4);
+  cursor: pointer;
+}
+
+.ask-go:disabled {
+  background: var(--wash);
+  color: var(--ink-3);
+  cursor: default;
+}
+
+.ask-reply {
+  font: var(--t-sm);
+  color: var(--ink-2);
+  margin-top: var(--s-3);
+}
+
+.ask-error {
+  font: var(--t-sm);
+  color: var(--red-press);
+  margin-top: var(--s-3);
+}
+
+/* The interpretation, shown before the route. A backwards reading is
+   invisible in a plan and obvious here — this list is the whole defence. */
+.ask-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+  padding: 0;
+  list-style: none;
+}
+
+.ask-chip {
+  font: var(--t-micro);
+  letter-spacing: var(--track-micro);
+  color: var(--ink);
+  background: var(--cobalt-tint);
+  border: var(--border-thin);
+  border-radius: var(--r-pill);
+  padding: var(--s-1) var(--s-3);
+}
+
+.ask-clear {
+  font: var(--t-micro);
+  letter-spacing: var(--track-micro);
+  color: var(--ink-2);
+  background: none;
+  border: none;
+  padding: var(--s-2) 0 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ask-note {
+  font: var(--t-micro);
+  color: var(--ink-3);
+  margin-top: var(--s-3);
+}

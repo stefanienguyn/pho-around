@@ -164,11 +164,18 @@ class SlidingWindowLimiter:
 
 limiter = SlidingWindowLimiter(limit=RATE_LIMIT_PER_MINUTE)
 
+# A separate, tighter allowance for /api/interpret. Deliberately its own number:
+# /api/itinerary is limited to protect our CPU, while this one is limited
+# because it spends someone else's quota — different reason, different budget.
+INTERPRET_RATE_LIMIT_PER_MINUTE = int(os.environ.get("INTERPRET_RATE_LIMIT_PER_MINUTE", "5"))
+interpret_limiter = SlidingWindowLimiter(limit=INTERPRET_RATE_LIMIT_PER_MINUTE)
 
-def enforce_rate_limit(request: Request) -> None:
-    """FastAPI dependency: refuse callers who are over the limit.
+
+def _enforce(limiter_: SlidingWindowLimiter, request: Request) -> None:
+    """Refuse the caller with a 429 when they are over ``limiter_``'s allowance.
 
     Args:
+        limiter_: the limiter holding this endpoint's allowance.
         request: the incoming request.
 
     Returns:
@@ -177,7 +184,7 @@ def enforce_rate_limit(request: Request) -> None:
     Raises:
         HTTPException: 429, carrying ``Retry-After``, when over the limit.
     """
-    retry_after = limiter.check(client_ip(request))
+    retry_after = limiter_.check(client_ip(request))
     if retry_after is None:
         return
     raise HTTPException(
@@ -187,3 +194,13 @@ def enforce_rate_limit(request: Request) -> None:
         # an immediate retry that would be refused again.
         headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
     )
+
+
+def enforce_rate_limit(request: Request) -> None:
+    """FastAPI dependency guarding ``/api/itinerary``."""
+    _enforce(limiter, request)
+
+
+def enforce_interpret_rate_limit(request: Request) -> None:
+    """FastAPI dependency guarding ``/api/interpret``."""
+    _enforce(interpret_limiter, request)

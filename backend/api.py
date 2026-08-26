@@ -27,10 +27,11 @@ from typing import Annotated, Literal
 
 import httpx2
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_validator
 
+import interpret
 from pho_engine import Itinerary, Start, load_seed_places, plan_itinerary
 from pho_engine.candidates import select_candidates
 from pho_engine.constraints import (
@@ -46,7 +47,7 @@ from pho_engine.constraints import (
 )
 from pho_engine.models import CATEGORIES
 from pho_engine.travel import load_travel_matrix, make_travel_time_fn
-from rate_limit import enforce_rate_limit
+from rate_limit import enforce_interpret_rate_limit, enforce_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -454,3 +455,105 @@ def create_itinerary(request: ItineraryRequest) -> ItineraryResponse:
         time_limit_s=SOLVER_TIME_LIMIT_S,
     )
     return _to_response(itinerary)
+
+
+# --- The model boundary: language in, typed constraints out -------------------
+
+# Validates one raw dict against the same closed vocabulary the API already
+# accepts, so there is exactly one definition of a valid constraint.
+_CONSTRAINT_ADAPTER = TypeAdapter(ConstraintIn)
+
+
+def validate_constraints(raw: list[dict]) -> tuple[list[ConstraintIn], int]:
+    """Keep the constraints that are valid; count the ones that are not.
+
+    Args:
+        raw: unvalidated dicts as returned by the model.
+
+    Returns:
+        ``(valid, dropped_count)``.
+
+    A language model producing something unusable is **expected, not
+    exceptional**: schema enums make an unknown category or place id impossible
+    to generate, but a nonsense field combination (``max_stops`` carrying a
+    ``category``) is still reachable. One bad entry must not fail the whole
+    message, and nothing unvalidated may ever reach the solver.
+    """
+    valid: list[ConstraintIn] = []
+    dropped = 0
+    for entry in raw:
+        try:
+            valid.append(_CONSTRAINT_ADAPTER.validate_python(entry))
+        except ValidationError:
+            logger.info("dropped an unusable constraint from the model: %s", entry)
+            dropped += 1
+    return valid, dropped
+
+
+class InterpretRequest(BaseModel):
+    """One sentence, plus whatever the person has already chosen."""
+
+    # Bounded at the boundary: a preference is a sentence, not an essay. Caps
+    # cost per call and denies prompt-stuffing a place to live.
+    message: str = Field(min_length=1, max_length=interpret.MAX_MESSAGE_CHARS)
+    # The entire "memory" of this feature, and it lives in the client. Sending
+    # the current constraints back lets a follow-up ("make it 2 coffees") edit
+    # them instead of starting over — without a server-side session, and
+    # without a transcript that grows every turn. Validated on the way in like
+    # any other input: the browser is not trusted just because we sent it.
+    constraints: list[ConstraintIn] = Field(default_factory=list)
+
+
+class InterpretResponse(BaseModel):
+    """What we understood — shown to the user, then sent to /api/itinerary."""
+
+    constraints: list[ConstraintIn]
+    reply: str
+    # Surfaced rather than hidden: if the model said something we could not
+    # use, the person deserves to know their request was only partly heard.
+    dropped: int
+
+
+@app.post(
+    "/api/interpret",
+    response_model=InterpretResponse,
+    dependencies=[Depends(enforce_interpret_rate_limit)],
+)
+def interpret_message(request: InterpretRequest) -> InterpretResponse:
+    """Turn one sentence into constraints the solver can honour.
+
+    Args:
+        request: the person's message, plus any constraints already in force.
+
+    Returns:
+        The validated constraints — the complete updated set, not a delta — a
+        one-line reply, and how many entries were dropped.
+
+    Raises:
+        HTTPException: 503 when no key is configured (the feature is simply
+            absent, which is not a server fault), 502 when the model call fails.
+
+    Deliberately does **not** solve. ``/api/itinerary`` stays a pure function of
+    its input, so every existing test keeps its meaning and the solver path
+    never depends on a network call to a model.
+    """
+    try:
+        raw, reply = interpret.interpret(
+            request.message,
+            places=_PLACES,
+            categories=list(CATEGORIES),
+            current=[c.model_dump() for c in request.constraints],
+        )
+    except interpret.InterpretUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail="Interpreting requests isn't switched on here — use the sliders instead.",
+        )
+    except interpret.InterpretFailed:
+        raise HTTPException(
+            status_code=502,
+            detail="Couldn't read that just now — try again, or use the sliders.",
+        )
+
+    constraints, dropped = validate_constraints(raw)
+    return InterpretResponse(constraints=constraints, reply=reply, dropped=dropped)
