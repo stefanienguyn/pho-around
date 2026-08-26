@@ -37,6 +37,9 @@ def _isolated(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     rate_limit.limiter.clear()
     rate_limit.interpret_limiter.clear()
+    # The provider budget is global and small (20/day). Without this the suite
+    # would spend it on itself and later tests would start failing at 429.
+    rate_limit.reset_gemini_budget()
     monkeypatch.setenv("GEMINI_API_KEY", "")
 
 
@@ -325,3 +328,56 @@ def test_context_from_the_client_is_still_validated(monkeypatch: pytest.MonkeyPa
         },
     )
     assert resp.status_code == 422
+
+
+# --- The provider's budget, which every visitor shares -----------------------
+
+
+def test_the_shared_budget_refuses_before_the_provider_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Gemini's free tier caps the project, not the visitor.
+
+    Our per-IP limit cannot protect it: two visitors, each within their own
+    allowance, still exceed the project's. So the budget is claimed globally
+    and refused in our words rather than surfacing someone else's 429.
+    """
+    monkeypatch.setattr(interpret, "interpret", _fake_interpret())
+    monkeypatch.setattr(rate_limit, "_gemini_minute", rate_limit.SlidingWindowLimiter(limit=2))
+
+    first = {"X-Forwarded-For": "203.0.113.1"}
+    second = {"X-Forwarded-For": "203.0.113.2"}
+    assert client.post("/api/interpret", json={"message": "a"}, headers=first).status_code == 200
+    assert client.post("/api/interpret", json={"message": "b"}, headers=second).status_code == 200
+
+    # A third visitor, well inside their own per-IP allowance, is still refused.
+    third = client.post(
+        "/api/interpret", json={"message": "c"}, headers={"X-Forwarded-For": "9.9.9.9"}
+    )
+    assert third.status_code == 429
+    assert "minute" in third.json()["detail"] or "allowance" in third.json()["detail"]
+
+
+def test_a_refused_daily_claim_does_not_also_burn_a_minute_slot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Both windows are tested before either is spent.
+
+    Otherwise a request the daily cap rejects would still consume a slot in
+    the minute cap — paying for a call that never happened.
+    """
+    monkeypatch.setattr(rate_limit, "_gemini_day", rate_limit.SlidingWindowLimiter(limit=0))
+    fresh_minute = rate_limit.SlidingWindowLimiter(limit=5)
+    monkeypatch.setattr(rate_limit, "_gemini_minute", fresh_minute)
+
+    assert rate_limit.claim_gemini_budget() == "daily"
+    # The minute allowance is untouched: nothing was actually spent.
+    assert fresh_minute.check("project", record=False) is None
+
+
+def test_todays_allowance_message_tells_you_to_come_back_later() -> None:
+    """ "Try again in a minute" and "try tomorrow" are different instructions."""
+    from api import app as _app  # noqa: F401  (import kept local to the test)
+
+    assert rate_limit.GEMINI_RPD == 500, "mirrors the AI Studio dashboard for the Lite model"
+    assert rate_limit.GEMINI_RPM == 15

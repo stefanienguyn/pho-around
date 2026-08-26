@@ -104,11 +104,15 @@ class SlidingWindowLimiter:
         self._lock = threading.Lock()
         self._checks_since_sweep = 0
 
-    def check(self, key: str) -> float | None:
-        """Record a request for ``key`` and say whether it is allowed.
+    def check(self, key: str, *, record: bool = True) -> float | None:
+        """Say whether a request for ``key`` is allowed, and usually record it.
 
         Args:
             key: the caller's identity (see :func:`client_ip`).
+            record: when False, report the answer without consuming the slot.
+                Needed when two allowances must both pass before either is
+                spent — checking-and-recording one, then failing the other,
+                would burn budget on a request that never happened.
 
         Returns:
             ``None`` when the request is allowed, otherwise the number of
@@ -133,10 +137,14 @@ class SlidingWindowLimiter:
                 hits.popleft()
 
             if len(hits) >= self._limit:
-                # Room appears when the oldest recorded hit ages out.
-                return hits[0] + self._window_s - now
+                # Room appears when the oldest recorded hit ages out — unless
+                # the limit is 0, which switches the endpoint off entirely and
+                # leaves no oldest hit to wait for. Report a whole window
+                # rather than indexing an empty deque.
+                return (hits[0] + self._window_s - now) if hits else self._window_s
 
-            hits.append(now)
+            if record:
+                hits.append(now)
             return None
 
     def clear(self) -> None:
@@ -204,3 +212,51 @@ def enforce_rate_limit(request: Request) -> None:
 def enforce_interpret_rate_limit(request: Request) -> None:
     """FastAPI dependency guarding ``/api/interpret``."""
     _enforce(interpret_limiter, request)
+
+
+# --- The provider's budget, which is shared by everyone ----------------------
+#
+# Gemini's free tier limits the PROJECT, not each visitor, and the numbers
+# depend on GEMINI_MODEL: 15/minute and 500/day for gemini-3.5-flash-lite,
+# 5 and 20 for gemini-3.7-flash. Change both together. The per-IP limiter above cannot
+# protect that — two visitors each inside their own allowance still exceed the
+# project's. These mirror the provider's real numbers (read off the AI Studio
+# dashboard, not the docs, which no longer publish them) so we refuse in our
+# own words instead of surfacing someone else's 429.
+#
+# Approximate on purpose, in two ways worth knowing: the daily window slides
+# over 24 hours whereas Google's resets at a fixed hour, and the counters are
+# in-process, so a restart forgets them. Both err toward *allowing* a request
+# Google might refuse — which the 502 path already handles gracefully.
+GEMINI_RPM = int(os.environ.get("GEMINI_RPM", "15"))
+GEMINI_RPD = int(os.environ.get("GEMINI_RPD", "500"))
+
+_gemini_minute = SlidingWindowLimiter(limit=GEMINI_RPM)
+_gemini_day = SlidingWindowLimiter(limit=GEMINI_RPD, window_s=24 * 60 * 60)
+# One shared bucket: this budget belongs to the project, not to any caller.
+_GEMINI_KEY = "project"
+
+
+def claim_gemini_budget() -> str | None:
+    """Take one request from the shared provider budget, if any is left.
+
+    Returns:
+        ``None`` when the request may proceed, otherwise a human-readable
+        reason naming which allowance ran out.
+
+    Both windows are tested before either is spent, so a request refused by
+    the daily cap does not also consume a slot in the minute cap.
+    """
+    if _gemini_day.check(_GEMINI_KEY, record=False) is not None:
+        return "daily"
+    if _gemini_minute.check(_GEMINI_KEY, record=False) is not None:
+        return "minute"
+    _gemini_day.check(_GEMINI_KEY)
+    _gemini_minute.check(_GEMINI_KEY)
+    return None
+
+
+def reset_gemini_budget() -> None:
+    """Forget the shared budget. Used to isolate tests."""
+    _gemini_day.clear()
+    _gemini_minute.clear()

@@ -113,6 +113,13 @@ function App() {
         body: JSON.stringify({ message, constraints }),
       })
       if (!res.ok) {
+        // 429 carries a specific reason (the shared daily allowance, or too
+        // many at once) — worth showing verbatim, because "try later" and
+        // "try tomorrow" are very different instructions.
+        if (res.status === 429) {
+          const body = await res.json().catch(() => null)
+          throw new Error(body?.detail ?? 'Busy right now — try again shortly')
+        }
         // 503 means the feature simply isn't switched on in this deployment;
         // the sliders still work, so say that rather than showing a failure.
         throw new Error(
@@ -235,6 +242,14 @@ function App() {
           <span className="disc">3</span>
         </div>
       </header>
+      {/* Sets expectations before anything can disappoint: a first visitor
+          meeting a cold start or a spent daily allowance reads it as a broken
+          site unless told otherwise. Not dismissible — it is two lines, and a
+          dismissed banner is the one nobody reads. */}
+      <p className="demo-note" role="status">
+        <strong>Early demo.</strong> Still being built, so it can be slow to wake up and the
+        “just say what you want” box has a small daily allowance. Thanks for your patience 🍜
+      </p>
       <main className="content">
         <section className="plan">
           <PlanForm

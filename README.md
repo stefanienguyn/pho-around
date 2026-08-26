@@ -18,7 +18,7 @@ optimized three-stop route drawn on the map on the right](docs/screenshot.png)
 ## How it works
 
 1. Tap the map (or use your location) to set a start point, pick a time budget and a spending
-   budget.
+   budget — or just say what you want: *"cà phê, không shopping, tối đa 3 chỗ"*.
 2. The backend solves an **orienteering problem** — a prize-collecting traveling-salesman
    variant — as a mixed-integer linear program (PuLP + CBC): maximize the total appeal of
    visited places, subject to your time budget (dwell + travel + a realism buffer per stop)
@@ -40,6 +40,14 @@ Some details the optimizer gets right that a list never could:
   ever sacrificing a better place to save a minute of riding.
 - **It doesn't overpromise.** Every stop is charged a parking/queueing buffer, and the time
   budget is hard — the plan you get is one you can actually live.
+- **You can talk to it, without it doing the planning.** A sentence goes to a language model
+  whose *only* output is a typed constraint list — `min_category coffee 2`, `exclude_category
+  shopping`, `max_stops 3` — drawn from a closed vocabulary, with categories and place ids
+  constrained to enums so it cannot name anything that doesn't exist. The solver still decides
+  which places and in what order. That division is the point: a model asked for a plan produces
+  something that *reads* right, while the MILP *proves* your budget holds. Follow-ups work too —
+  "actually make it 2 coffees" edits the constraints and re-solves, with the interpretation shown
+  back so a misread request is obvious before the route is.
 - **It scales politely.** Each request pre-filters the dataset to 25 candidates — the 18
   nearest to *your* start, plus the 7 best anywhere in the city — so a far-away gem always
   keeps its seat at the table. That number is measured, not guessed: on the deployment's
@@ -63,6 +71,7 @@ by a small family of dry-run-first import scripts in [`backend/scripts/`](backen
 | Optimizer | PuLP + CBC (mixed-integer linear programming) |
 | Travel times | Google Routes API (`computeRouteMatrix`, two-wheeler mode) |
 | Data | Curated JSON seed + precomputed sparse travel-time matrix |
+| Language | Google Gemini (free tier) for `POST /api/interpret` — sentence → typed constraints |
 | Hosting | Vercel (static frontend) + Render (uvicorn + solver) |
 
 The split is deliberate: the frontend is static files, which a CDN serves for free from
@@ -72,8 +81,14 @@ serverless duration caps and a fine fit for an ordinary long-lived process.
 ## Running locally
 
 Two dev servers, two terminals. You'll need a Google Cloud project with the Maps JavaScript,
-Geocoding, Routes and Places APIs enabled, and two API keys (see the `.env.example` files —
+Geocoding, Routes and Places APIs enabled, and two Maps keys (see the `.env.example` files —
 a browser key locked by referrer + API restrictions, and a server key kept server-side).
+
+The "just say what you want" box additionally needs a **Gemini API key** from
+[AI Studio](https://aistudio.google.com/apikey), set as `GEMINI_API_KEY`. Without it that one
+feature returns a clean 503 and everything else works unchanged. Create it in a project with **no
+billing account attached** — a key in a billing-enabled project can land on the paid tier and bill
+per token, where a free-tier key simply stops at its daily allowance.
 
 ```bash
 # backend — http://127.0.0.1:8000
@@ -88,9 +103,20 @@ npm install
 npm run dev
 ```
 
-Tests: `python -m pytest` from `backend/` — 67 covering the engine, the HTTP layer,
-travel-time lookup, the incremental matrix builder, and the solver's behaviour pinned by
+Tests: `python -m pytest` from `backend/` — 99 covering the engine, the HTTP layer, travel-time
+lookup, the incremental matrix builder, rate limiting, the language boundary (with the model
+mocked — no test in the gate touches the network), and the solver's behaviour pinned by
 hand-checkable instances.
+
+How well the model actually reads requests is measured separately, on demand, because it costs
+real quota and its answers vary between runs:
+
+```bash
+PYTHONPATH=. .venv/bin/python scripts/eval_interpret.py
+```
+
+Twelve cases in Vietnamese and English, built around negation — "no coffee" becoming "at least one
+coffee" would pass every validator and be exactly backwards.
 
 ## Status
 
@@ -104,9 +130,9 @@ found nothing at all on a shared tenth of a CPU. And a travel-time matrix rebuil
 during development arrived as a $106 bill — which is why the running app now makes zero API
 calls per click, and why every import script asks before it spends.
 
-Next: an LLM planning layer that turns natural language into typed constraints for the solver —
-the model proposes, the solver still disposes — then saved itineraries and the accounts they
-require.
+The language layer landed in August: the model proposes constraints, the solver still disposes.
+Next: accounts and a database, which bring saved itineraries — and let people suggest places worth
+adding.
 
 ---
 

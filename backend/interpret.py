@@ -26,11 +26,19 @@ import os
 
 logger = logging.getLogger(__name__)
 
-# Free of charge on Gemini's free tier (verified against Google's pricing page,
-# 2026-08-24). Not a Flash-Lite: the hardest part of this task is negation
-# ("no coffee" must become exclude_category, not min_category), and that is
-# the first thing a smaller model gets wrong.
-MODEL = "gemini-3.7-flash"
+# Which model reads the sentence. Configurable because the choice is a live
+# trade-off, not a settled fact:
+#
+#   gemini-3.5-flash-lite   15 RPM /  500 requests a day   <- default
+#   gemini-3.7-flash         5 RPM /   20 requests a day
+#
+# Both are free, and their quotas are counted separately. 20/day cannot carry
+# a public demo — ten curious visitors finish it before lunch — so the Lite
+# model is the default despite being smaller. The risk that buys is negation
+# ("no coffee" must become exclude_category, not min_category), which is
+# exactly what a smaller model gets wrong first, so it is measured rather than
+# assumed: see scripts/eval_interpret.py.
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
 # A preference sentence, not an essay. Bounds cost and blocks prompt-stuffing.
 MAX_MESSAGE_CHARS = 500

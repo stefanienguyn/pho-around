@@ -1035,3 +1035,51 @@ input[type='number'] {
   color: var(--ink-3);
   margin-top: var(--s-3);
 }
+
+/* Typed budget entry, revealed by the "Custom" chip. A slider is good at
+   roughly and bad at exactly; this is the exactly. */
+.custom-field {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+}
+
+.custom-field input {
+  width: 10ch;
+  font: var(--t-strong);
+  color: var(--ink);
+  background: var(--card);
+  border: var(--border-thin);
+  border-radius: var(--r-sm);
+  padding: var(--s-2) var(--s-3);
+}
+
+.custom-field input:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}
+
+.custom-field span {
+  font: var(--t-sm);
+  color: var(--ink-3);
+}
+
+/* Demo notice. Sits between the header and the app so it is read before the
+   first interaction, not after something has already felt broken. */
+.demo-note {
+  font: var(--t-sm);
+  color: var(--ink-2);
+  background: var(--wash);
+  border-bottom: var(--border-thin);
+  padding: var(--s-2) var(--s-4);
+  margin: 0;
+  text-align: center;
+}
+
+/* Not --yolk, despite the "notice" instinct: the token block reserves yolk
+   for money and nothing else. --wash is the neutral surface. */
+.demo-note strong {
+  font: var(--t-sm-strong);
+  color: var(--ink);
+}

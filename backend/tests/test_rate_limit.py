@@ -119,3 +119,14 @@ def test_client_ip_falls_back_to_the_socket_then_to_unknown() -> None:
     """Without the header, use the peer address; without either, don't crash."""
     assert client_ip(FakeRequest(host="198.51.100.7")) == "198.51.100.7"
     assert client_ip(FakeRequest()) == "unknown"
+
+
+def test_a_limit_of_zero_refuses_instead_of_crashing() -> None:
+    """Setting a limit to 0 is how you switch an endpoint off.
+
+    It must refuse politely; indexing the empty deque for "the oldest hit"
+    turned that configuration into a 500.
+    """
+    limiter = SlidingWindowLimiter(limit=0, window_s=60.0)
+    retry_after = limiter.check("anyone")
+    assert retry_after == 60.0

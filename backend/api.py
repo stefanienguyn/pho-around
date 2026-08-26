@@ -47,7 +47,7 @@ from pho_engine.constraints import (
 )
 from pho_engine.models import CATEGORIES
 from pho_engine.travel import load_travel_matrix, make_travel_time_fn
-from rate_limit import enforce_interpret_rate_limit, enforce_rate_limit
+from rate_limit import claim_gemini_budget, enforce_interpret_rate_limit, enforce_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -537,6 +537,21 @@ def interpret_message(request: InterpretRequest) -> InterpretResponse:
     its input, so every existing test keeps its meaning and the solver path
     never depends on a network call to a model.
     """
+    # The per-IP limit above protects us from one noisy visitor; this protects
+    # the provider budget, which everyone shares. Claimed before the call so a
+    # refusal costs nothing.
+    exhausted = claim_gemini_budget()
+    if exhausted == "daily":
+        raise HTTPException(
+            status_code=429,
+            detail="That's today's free allowance used up — the sliders still work.",
+        )
+    if exhausted == "minute":
+        raise HTTPException(
+            status_code=429,
+            detail="A few too many at once — try again in a minute, or use the sliders.",
+        )
+
     try:
         raw, reply = interpret.interpret(
             request.message,

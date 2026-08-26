@@ -106,6 +106,8 @@ function PlanForm({
         presets={TIME_PRESETS}
         formatValue={formatDuration}
         customChip
+        customUnit="hours"
+        customFactor={60}
         sliderLabel="Time in minutes"
       />
 
@@ -118,6 +120,8 @@ function PlanForm({
         step={25000}
         presets={MONEY_PRESETS}
         formatValue={formatVnd}
+        customChip
+        customUnit="đồng"
         sliderLabel="Money in đồng"
       />
 
