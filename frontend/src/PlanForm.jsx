@@ -33,6 +33,10 @@ function PlanForm({
   onUseLocation,
   loading,
   onSubmit,
+  // Rendered between the start block and the budget controls — the ask box
+  // lives there. Passed as children so App keeps owning its state and this
+  // form stays ignorant of what the slot contains.
+  children,
 }) {
   const hasStart = Number.isFinite(parseFloat(lat)) && Number.isFinite(parseFloat(lng))
 
@@ -95,6 +99,8 @@ function PlanForm({
           </div>
         </details>
       </div>
+
+      {children}
 
       <BudgetControl
         label="Time"

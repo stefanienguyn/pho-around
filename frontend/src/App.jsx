@@ -247,8 +247,8 @@ function App() {
           site unless told otherwise. Not dismissible — it is two lines, and a
           dismissed banner is the one nobody reads. */}
       <p className="demo-note" role="status">
-        <strong>Early demo.</strong> Still being built, so it can be slow to wake up and the
-        “just say what you want” box has a small daily allowance. Thanks for your patience 🍜
+        <strong>Early demo.</strong> Still being built, so it can be slow to wake up and asking
+        in words has a small daily allowance. Thanks for your patience 🍜
       </p>
       <main className="content">
         <section className="plan">
@@ -268,18 +268,19 @@ function App() {
             onUseLocation={handleUseLocation}
             loading={loading}
             onSubmit={handleSubmit}
-          />
-          <AskBox
-            value={ask}
-            onChange={setAsk}
-            onSubmit={runInterpret}
-            asking={asking}
-            reply={askReply}
-            constraints={constraints}
-            dropped={askDropped}
-            error={askError}
-            onClear={clearConstraints}
-          />
+          >
+            <AskBox
+              value={ask}
+              onChange={setAsk}
+              onSubmit={runInterpret}
+              asking={asking}
+              reply={askReply}
+              constraints={constraints}
+              dropped={askDropped}
+              error={askError}
+              onClear={clearConstraints}
+            />
+          </PlanForm>
         </section>
         <div className="map-region">
           <MapView
