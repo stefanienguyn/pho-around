@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 // Served straight from public/ — Vite copies that folder as-is and never
 // inlines it, so the 4.9 MB video is a separate request, not bundle weight.
@@ -14,22 +14,26 @@ const POSTER_SRC = '/hero.jpg'
  */
 function Hero({ collapsed, children }) {
   const videoRef = useRef(null)
+  // True once the browser refused to autoplay (iOS Low Power Mode, data
+  // saver): the video comes out of the DOM and the poster — the hero's
+  // background image — stands in. Otherwise Safari paints its own play
+  // button over a video that is meant to be wallpaper.
+  const [refused, setRefused] = useState(false)
 
   // Autoplay policy: browsers only autoplay video that is muted, and
   // React's `muted` prop sets the DOM *property* but not the HTML attribute
   // that Chrome checks at load — so the element is muted by hand here, and
-  // play() is called explicitly. The catch is deliberate: a refused play()
-  // (low-power mode, data saver) is normal, and the poster stays up.
+  // play() is called explicitly so the refusal is observable.
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
     video.muted = true
-    video.play().catch(() => {})
+    video.play().catch(() => setRefused(true))
   }, [collapsed])
 
   return (
     <header className={collapsed ? 'hero has-results' : 'hero'}>
-      {!collapsed && (
+      {!collapsed && !refused && (
         <video
           ref={videoRef}
           className="hero-video"

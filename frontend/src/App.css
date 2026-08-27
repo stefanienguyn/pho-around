@@ -177,6 +177,15 @@ h2 {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  pointer-events: none; /* wallpaper, not a player */
+}
+
+/* iOS Safari overlays a play button on any video it declined to autoplay;
+   React drops the element in that case, and this covers the gap before it does. */
+.hero-video::-webkit-media-controls-start-playback-button,
+.hero-video::-webkit-media-controls {
+  display: none !important;
+  -webkit-appearance: none;
 }
 
 /* Heavier at the top (nav + headline live there), lighter toward the
