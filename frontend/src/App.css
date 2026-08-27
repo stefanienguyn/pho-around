@@ -84,6 +84,17 @@
   --shadow-press: 2px 2px 0 var(--ink);
   --shadow-soft: 0 6px 20px rgba(27, 26, 23, 0.12);
 
+  /* Landing hero, the one place paper sits ON TOP of imagery: an ink scrim
+     so the headline reads on the brightest frame, and translucent paper
+     ("glass") for the badge and the ask box. Paper-on-ink, never white. */
+  --scrim: rgba(27, 26, 23, 0.42);
+  --scrim-top: rgba(27, 26, 23, 0.6);
+  --glass: rgba(255, 246, 233, 0.16);
+  --glass-strong: rgba(255, 246, 233, 0.92);
+  --glass-line: rgba(255, 246, 233, 0.45);
+  --t-hero: 800 clamp(40px, 9vw, 84px) / 1.05 var(--font-display);
+  --t-hero-sub: 400 clamp(16px, 2.2vw, 20px) / 1.5 var(--font-body);
+
   /* Gạch bông tile, 28px repeat: paper ground, cobalt-tint diamond,
      red-tint quarter circles at the corners. Inline SVG (vector) so it
      stays crisp at any DPR; its colors mirror the tokens above. */
@@ -144,39 +155,137 @@ h2 {
    the base rules are the phone (stacked, map pinned to the top edge);
    the ≥960px query switches to a two-column grid. */
 
+/* The landing hero: one viewport of Chợ Bến Thành with one question on it.
+   Three layers, back to front: the video (with its poster as the ground
+   behind it, so there is never a blank frame), the ink scrim, the copy.
+   `svh` = the viewport with the phone's browser bars shown — 100vh would
+   overflow by the address-bar height on first load. */
 .hero {
-  padding: var(--s-5) var(--s-4);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  overflow: hidden;
+  color: var(--paper);
+  background: var(--ink) url('/hero.jpg') center / cover;
   border-bottom: var(--border); /* hard ink edge — never a radius here */
 }
 
-.subline {
-  font: var(--t-body);
-  color: var(--ink-2);
-  margin: var(--s-2) 0 0;
+.hero-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-/* The route ribbon: a red line with three stool discs riding it — the
-   product's output in miniature. Static by design; never animated. */
-.ribbon {
+/* Heavier at the top (nav + headline live there), lighter toward the
+   street so the market still reads as a place, not a texture. */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* above the video, which comes later in the DOM */
+  background: linear-gradient(var(--scrim-top), var(--scrim) 45%, var(--scrim));
+}
+
+.hero-nav,
+.hero-body {
   position: relative;
+  z-index: 2; /* above the video and scrim */
+}
+
+.hero-nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 320px;
-  margin-top: var(--s-5);
+  padding: var(--s-4);
 }
 
-.ribbon::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: var(--red);
+.wordmark {
+  font: var(--t-h1);
+}
+
+/* The glass pill: translucent paper with a paper hairline. Used for the
+   demo tag in the nav and the badge above the headline. */
+.hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font: var(--t-micro);
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  color: var(--paper);
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-pill);
+  padding: var(--s-1) var(--s-3);
+  backdrop-filter: blur(6px);
+}
+
+/* The dot in the badge is the stool disc at its smallest. */
+.hero-pill .disc {
+  --disc-size: 10px;
+  border-width: 1.5px;
+}
+
+.hero-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--s-4);
+  padding: var(--s-6) var(--s-4) var(--s-8);
+  max-width: 880px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.hero-title {
+  font: var(--t-hero);
+  text-wrap: balance;
+  margin: 0;
+}
+
+.hero-title span {
+  display: block;
+}
+
+/* The accent words ride the route line — the red 4px stroke is the same
+   object that draws the itinerary on the map. */
+.hero-accent {
+  text-decoration: underline;
+  text-decoration-color: var(--red);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.12em;
+  text-decoration-skip-ink: none; /* one unbroken route line, descenders or not */
+}
+
+/* Insurance for the brightest frames (a white car crossing): a whisper of
+   ink behind every letter, on top of the scrim. */
+.hero-body,
+.hero-nav {
+  text-shadow: 0 1px 2px var(--scrim-top);
+}
+
+.subline {
+  font: var(--t-hero-sub);
+  color: var(--paper);
+  margin: 0;
+  max-width: 34em;
+}
+
+/* Under the box: a quiet way past the question for people who would
+   rather drag sliders. */
+.hero-skip {
+  font: var(--t-sm-strong);
+  color: var(--paper);
 }
 
 /* The signature object: a filled disc, ink ring, number inside. Used at
-   three scales (ribbon 28px, stop cards 32px, loading 64px) via --disc-size. */
+   three scales (badge 10px, stop cards 32px, loading 64px) via --disc-size. */
 .disc {
   display: grid;
   place-items: center;
@@ -190,23 +299,25 @@ h2 {
   position: relative; /* rides above the ribbon line */
 }
 
-/* On the tile band the discs get a card halo so they read against the pattern. */
-.ribbon .disc {
-  box-shadow: 0 0 0 4px var(--card);
-}
-
-/* Once results exist the hero yields the screen: wordmark only. A plain
+/* Once results exist the hero yields the screen: the nav row only, back on
+   paper (the video is unmounted by React, not just hidden). A plain
    class-driven change — never scroll-linked (it would fight the sticky map). */
 .hero.has-results {
-  display: flex;
-  align-items: center;
   min-height: 88px; /* the brief's collapsed band height */
-  padding: var(--s-3) var(--s-4);
+  color: var(--ink);
+  background: var(--tile) left top / 28px 28px repeat;
 }
 
-.hero.has-results .subline,
-.hero.has-results .ribbon {
+.hero.has-results::before,
+.hero.has-results .hero-body {
   display: none;
+}
+
+.hero.has-results .hero-pill {
+  color: var(--ink);
+  background: var(--card);
+  border: var(--border-thin);
+  backdrop-filter: none;
 }
 
 .content {
@@ -629,6 +740,51 @@ input[type='number'] {
   .spin-disc {
     animation: spin 1.2s linear infinite;
   }
+
+  /* Hero entrance: the video settles from a slight zoom while the copy
+     rises out of a blur, one piece after another (--stagger, 120ms apart).
+     `both` keeps the from-state applied during the delay, so nothing
+     flashes into place before its turn. */
+  .hero-video {
+    animation: hero-settle 1.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .hero-body > * {
+    animation: hero-rise 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(300ms + var(--stagger, 0) * 120ms);
+  }
+}
+
+@keyframes hero-settle {
+  from {
+    opacity: 0;
+    scale: 1.05;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    translate: 0 20px;
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    translate: 0;
+    filter: blur(0);
+  }
+}
+
+/* Reduced motion: no looping video at all — the poster (the hero's
+   background) stands in, and the copy is simply there. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-video {
+    display: none;
+  }
 }
 
 /* ---------- 7. Results ---------- */
@@ -925,13 +1081,13 @@ input[type='number'] {
 }
 
 /* --- Ask box: a sentence in, constraints out -----------------------------
-   Provisional. Built for the demo and restyled in the UI redesign; every
-   value below still comes from a token so it doesn't look pasted in. */
+   Lives in the hero, on the video: the input is a glass-strong card (opaque
+   enough to type into), everything else is paper on the scrim. */
 
 .ask {
-  margin-top: var(--s-5);
-  padding-top: var(--s-4);
-  border-top: 1px solid var(--line-soft);
+  width: 100%;
+  max-width: 560px;
+  text-align: left;
 }
 
 .ask-label {
@@ -939,7 +1095,7 @@ input[type='number'] {
   font: var(--t-micro);
   letter-spacing: var(--track-micro);
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--paper);
   margin-bottom: var(--s-2);
 }
 
@@ -951,9 +1107,10 @@ input[type='number'] {
 .ask-input {
   flex: 1;
   min-width: 0;
+  min-height: 48px;
   font: var(--t-body);
   color: var(--ink);
-  background: var(--card);
+  background: var(--glass-strong);
   border: var(--border-thin);
   border-radius: var(--r-sm);
   padding: var(--s-2) var(--s-3);
@@ -988,13 +1145,14 @@ input[type='number'] {
 
 .ask-reply {
   font: var(--t-sm);
-  color: var(--ink-2);
+  color: var(--paper);
   margin-top: var(--s-3);
 }
 
+/* Red text on the scrim fails contrast; the tint is the readable red here. */
 .ask-error {
   font: var(--t-sm);
-  color: var(--red-press);
+  color: var(--red-tint);
   margin-top: var(--s-3);
 }
 
@@ -1022,7 +1180,7 @@ input[type='number'] {
 .ask-clear {
   font: var(--t-micro);
   letter-spacing: var(--track-micro);
-  color: var(--ink-2);
+  color: var(--paper);
   background: none;
   border: none;
   padding: var(--s-2) 0 0;
@@ -1032,7 +1190,7 @@ input[type='number'] {
 
 .ask-note {
   font: var(--t-micro);
-  color: var(--ink-3);
+  color: var(--wash);
   margin-top: var(--s-3);
 }
 
@@ -1065,21 +1223,82 @@ input[type='number'] {
   color: var(--ink-3);
 }
 
-/* Demo notice. Sits between the header and the app so it is read before the
-   first interaction, not after something has already felt broken. */
-.demo-note {
-  font: var(--t-sm);
-  color: var(--ink-2);
-  background: var(--wash);
-  border-bottom: var(--border-thin);
-  padding: var(--s-2) var(--s-4);
-  margin: 0;
-  text-align: center;
+/* --- Start sheet: "where are you starting from?" --------------------------
+   A centred card over the scrim. Fixed so it works from the hero and from
+   anywhere down the page; above the sticky map (z 5) and the totals bar. */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: var(--s-4);
+  background: var(--scrim);
 }
 
-/* Not --yolk, despite the "notice" instinct: the token block reserves yolk
-   for money and nothing else. --wash is the neutral surface. */
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  width: 100%;
+  max-width: 420px;
+  padding: var(--s-5);
+  background: var(--card);
+  border: var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-hard);
+}
+
+.sheet-title {
+  font: var(--t-h2);
+  margin: 0 0 var(--s-2);
+}
+
+.sheet-button {
+  min-height: 48px;
+  font: var(--t-strong);
+  color: var(--paper);
+  background: var(--ink);
+  border: var(--border-thin);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+
+.sheet-button:disabled {
+  background: var(--wash);
+  color: var(--ink-3);
+  cursor: default;
+}
+
+.sheet-label {
+  font: var(--t-micro);
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* The Google autocomplete web component draws its own input; the wrapper
+   just gives it the row's width. */
+.place-search gmp-place-autocomplete {
+  width: 100%;
+  color-scheme: light;
+}
+
+.sheet-dismiss {
+  align-self: flex-end;
+  color: var(--ink-2); /* .ask-clear is paper for the hero; this sits on card */
+}
+
+/* Demo notice. Sits right under the ask box so it is read before the first
+   interaction, not after something has already felt broken. */
+.demo-note {
+  font: var(--t-sm);
+  color: var(--wash);
+  margin: 0;
+  max-width: 34em;
+}
+
 .demo-note strong {
   font: var(--t-sm-strong);
-  color: var(--ink);
+  color: var(--paper);
 }

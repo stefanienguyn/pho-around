@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import AskBox from './AskBox'
+import Hero from './Hero'
 import MapView from './MapView'
 import PlanForm from './PlanForm'
 import { Results, TotalsBar } from './Results'
+import StartSheet from './StartSheet'
 import { LoadingPanel, EmptyPanel, ErrorPanel } from './StatusPanels'
 import { formatDurationLong, formatVndSpoken } from './format'
 import './App.css'
@@ -64,6 +66,12 @@ function App() {
   const [askError, setAskError] = useState(null)
   const [locating, setLocating] = useState(false)
   const [geoNote, setGeoNote] = useState(null)
+  // Asked in words before any start exists: the sheet opens, and the next
+  // start — however it arrives (sheet, map tap) — plans straight away.
+  // Two flags because "tap the map instead" closes the sheet but keeps
+  // the promise to plan.
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [planOnStart, setPlanOnStart] = useState(false)
 
   // Map clicks arrive as raw floats; 5 decimals ≈ 1 m — plenty for a start pin.
   function handlePickStart(pickedLat, pickedLng) {
@@ -71,6 +79,27 @@ function App() {
     setLng(pickedLng.toFixed(5))
     setPicking(false)
     setGeoNote(null)
+    if (planOnStart) {
+      setPlanOnStart(false)
+      setSheetOpen(false)
+      // The coordinates go in as arguments: the state set above hasn't
+      // landed yet, and runPlan would otherwise read the empty strings.
+      runPlan(Number(timeMin), Number(moneyVnd), constraints, {
+        lat: pickedLat,
+        lng: pickedLng,
+      })
+    }
+  }
+
+  function handleUseMap() {
+    setSheetOpen(false)
+    setPicking(true)
+    document.querySelector('.map-region')?.scrollIntoView({ block: 'start' })
+  }
+
+  function handleDismissSheet() {
+    setSheetOpen(false)
+    setPlanOnStart(false)
   }
 
   // The browser's built-in Geolocation API — no Google, no key. The browser
@@ -134,9 +163,12 @@ function App() {
       setAskDropped(data.dropped)
       setAsk('')
       // Re-plan straight away when there's somewhere to start from, so the
-      // route visibly answers the sentence.
+      // route visibly answers the sentence; otherwise ask where that is.
       if (lat && lng) {
         runPlan(Number(timeMin), Number(moneyVnd), data.constraints)
+      } else {
+        setPlanOnStart(true)
+        setSheetOpen(true)
       }
     } catch (err) {
       setAskError(err.message)
@@ -154,7 +186,12 @@ function App() {
     }
   }
 
-  async function runPlan(timeBudgetMin, moneyBudgetVnd, withConstraints = constraints) {
+  async function runPlan(
+    timeBudgetMin,
+    moneyBudgetVnd,
+    withConstraints = constraints,
+    start = { lat: Number(lat), lng: Number(lng) },
+  ) {
     setLoading(true)
     setError(null)
     setItinerary(null)
@@ -163,7 +200,7 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          start: { lat: Number(lat), lng: Number(lng) },
+          start,
           time_budget_min: timeBudgetMin,
           money_budget_vnd: moneyBudgetVnd,
           constraints: withConstraints,
@@ -226,32 +263,28 @@ function App() {
       : 'No plan fits your budgets'
   }
 
-  // Three page regions (hero / plan / results) + the map. DOM order puts
-  // the form before the map so tab order starts at the inputs; CSS places
-  // the map visually (pinned on top for phones, right column on desktop).
+  // Three page regions (hero / plan / results) + the map. The ask box
+  // renders inside the hero — it is the front door — while its state stays
+  // here, next to the plan it feeds. DOM order puts the form before the map
+  // so tab order starts at the inputs; CSS places the map visually (pinned
+  // on top for phones, right column on desktop).
   return (
     <>
-      <header className={heroCollapsed ? 'hero tile has-results' : 'hero tile'}>
-        <h1>Phở around</h1>
-        <p className="subline">Tell us where you are and how long you've got.</p>
-        {/* The route ribbon: a miniature of the product's output, introducing
-            the stool disc before the user has any data. Decorative. */}
-        <div className="ribbon" aria-hidden="true">
-          <span className="disc">1</span>
-          <span className="disc">2</span>
-          <span className="disc">3</span>
-        </div>
-      </header>
-      {/* Sets expectations before anything can disappoint: a first visitor
-          meeting a cold start or a spent daily allowance reads it as a broken
-          site unless told otherwise. Not dismissible — it is two lines, and a
-          dismissed banner is the one nobody reads. */}
-      <p className="demo-note" role="status">
-        <strong>Early demo.</strong> Still being built, so it can be slow to wake up and asking
-        in words has a small daily allowance. Thanks for your patience 🍜
-      </p>
+      <Hero collapsed={heroCollapsed}>
+        <AskBox
+          value={ask}
+          onChange={setAsk}
+          onSubmit={runInterpret}
+          asking={asking}
+          reply={askReply}
+          constraints={constraints}
+          dropped={askDropped}
+          error={askError}
+          onClear={clearConstraints}
+        />
+      </Hero>
       <main className="content">
-        <section className="plan">
+        <section className="plan" id="plan">
           <PlanForm
             lat={lat}
             lng={lng}
@@ -268,19 +301,7 @@ function App() {
             onUseLocation={handleUseLocation}
             loading={loading}
             onSubmit={handleSubmit}
-          >
-            <AskBox
-              value={ask}
-              onChange={setAsk}
-              onSubmit={runInterpret}
-              asking={asking}
-              reply={askReply}
-              constraints={constraints}
-              dropped={askDropped}
-              error={askError}
-              onClear={clearConstraints}
-            />
-          </PlanForm>
+          />
         </section>
         <div className="map-region">
           <MapView
@@ -317,6 +338,16 @@ function App() {
       {/* Mounts only with stops: a persistent empty bar would eat 44px
           of a phone screen for nothing. */}
       {hasResults && <TotalsBar itinerary={itinerary} onReset={handleReset} />}
+      {sheetOpen && (
+        <StartSheet
+          locating={locating}
+          geoNote={geoNote}
+          onUseLocation={handleUseLocation}
+          onPickPlace={handlePickStart}
+          onUseMap={handleUseMap}
+          onDismiss={handleDismissSheet}
+        />
+      )}
     </>
   )
 }

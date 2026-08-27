@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { importLibrary, setOptions } from '@googlemaps/js-api-loader'
+import { CITY_CENTER } from './city'
 
 // Points at the "pho-around-web" cloud map config (Vector + the
 // "Plastic Stool paper" style; styling lives in the console, and inline
@@ -8,8 +9,6 @@ import { importLibrary, setOptions } from '@googlemaps/js-api-loader'
 // markers require some map ID either way.
 const MAP_ID = '52428a84057d1b9f56ca9c30'
 const DEFAULT_ZOOM = 14
-// Where the map opens before any start is set (central Sài Gòn).
-const CITY_CENTER = { lat: 10.7769, lng: 106.7009 }
 // Stop pins sit above the start pin; the hovered pin above everything.
 const Z_START_PIN = 1
 const Z_STOP_PIN = 10

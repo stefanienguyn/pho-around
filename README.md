@@ -17,8 +17,9 @@ optimized three-stop route drawn on the map on the right](docs/screenshot.png)
 
 ## How it works
 
-1. Tap the map (or use your location) to set a start point, pick a time budget and a spending
-   budget — or just say what you want: *"cà phê, không shopping, tối đa 3 chỗ"*.
+1. Say what you want — *"cà phê, không shopping, tối đa 3 chỗ"* — on the landing page, then
+   tell it where you are (your location, a place name, or a tap on the map). Or skip the
+   question and set a start point, a time budget and a spending budget by hand.
 2. The backend solves an **orienteering problem** — a prize-collecting traveling-salesman
    variant — as a mixed-integer linear program (PuLP + CBC): maximize the total appeal of
    visited places, subject to your time budget (dwell + travel + a realism buffer per stop)
