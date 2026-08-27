@@ -1,4 +1,5 @@
 import { describeConstraint } from './format'
+import { preloadPlaces } from './places'
 
 /**
  * A sentence in, planning constraints out.
@@ -43,6 +44,7 @@ function AskBox({ value, onChange, onSubmit, asking, reply, constraints, dropped
           placeholder="cà phê, không shopping, tối đa 3 chỗ"
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={preloadPlaces}
           disabled={asking}
         />
         <button
@@ -55,8 +57,15 @@ function AskBox({ value, onChange, onSubmit, asking, reply, constraints, dropped
         </button>
       </div>
 
+      {/* The model takes a few seconds (more on a cold backend); a line of
+          text is the honest signal — a "…" in a button reads as nothing. */}
+      {asking && (
+        <p className="ask-reply" role="status">
+          Reading that…
+        </p>
+      )}
       {error && <p className="ask-error">{error}</p>}
-      {reply && <p className="ask-reply">{reply}</p>}
+      {reply && !asking && <p className="ask-reply">{reply}</p>}
 
       {constraints.length > 0 && (
         <>

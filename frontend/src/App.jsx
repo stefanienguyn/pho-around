@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AskBox from './AskBox'
 import Hero from './Hero'
 import MapView from './MapView'
@@ -45,6 +45,17 @@ function App() {
   const [hoveredStopId, setHoveredStopId] = useState(null)
 
   const hasResults = itinerary !== null && itinerary.stops.length > 0
+
+  // When a plan (or the empty panel) arrives, bring it on screen: on a phone
+  // the map is pinned to the top and the cards sit below the form, under the
+  // fold. CSS scroll-margin keeps them clear of the pinned map. Reduced-motion
+  // users get the jump without the glide.
+  const resultsRef = useRef(null)
+  useEffect(() => {
+    if (itinerary === null) return
+    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    resultsRef.current?.scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' })
+  }, [itinerary])
 
   function handleReset() {
     setItinerary(null)
@@ -315,7 +326,7 @@ function App() {
             onHoverStop={setHoveredStopId}
           />
         </div>
-        <section className="results" aria-busy={loading}>
+        <section className="results" aria-busy={loading} ref={resultsRef}>
           <p className="sr-only" role="status">
             {announcement}
           </p>
