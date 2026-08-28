@@ -29,6 +29,18 @@ function Hero({ collapsed, children }) {
     if (!video) return
     video.muted = true
     video.play().catch(() => setRefused(true))
+
+    // iOS pauses a video that scrolls out of view and only auto-resumes one
+    // it started itself via `autoplay`; this one was started by play(), so
+    // resume it by hand every time it scrolls back in. A refusal *here* is
+    // not a policy refusal (the first play succeeded), so it is ignored.
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && video.paused) {
+        video.play().catch(() => {})
+      }
+    })
+    observer.observe(video)
+    return () => observer.disconnect()
   }, [collapsed])
 
   return (
