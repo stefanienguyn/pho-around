@@ -341,3 +341,14 @@ def test_a_forged_forwarded_header_cannot_win_a_fresh_allowance() -> None:
     another_forgery = {"X-Forwarded-For": "10.0.0.99, 203.0.113.50"}
     resp = client.post("/api/itinerary", json=CHEAP_REQUEST, headers=another_forgery)
     assert resp.status_code == 429, "the trusted rightmost hop is what counts"
+
+
+def test_first_category_anchors_the_first_stop() -> None:
+    """The ordering form reaches the solver: stop 1 is of the anchored category."""
+    resp = client.post(
+        "/api/itinerary",
+        json={**GENEROUS, "constraints": [{"type": "first_category", "category": "coffee"}]},
+    )
+    assert resp.status_code == 200
+    stops = resp.json()["stops"]
+    assert stops and stops[0]["place"]["category"] == "coffee"

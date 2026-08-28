@@ -56,6 +56,10 @@ CASES: list[tuple[str, set[tuple]]] = [
             ("max_stops", None, 3),
         },
     ),
+    # --- ordering: "now" anchors the first stop, a plain wish does not ---
+    ("tôi thèm phở", {("first_place", None, None)}),
+    ("phở cho bữa tối", {("require_place", None, None)}),
+    ("cà phê trước đã", {("first_category", "coffee", None)}),
     # --- nothing expressible: must not invent constraints ---
     ("hello", set()),
     ("somewhere nice for the afternoon", set()),

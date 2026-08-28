@@ -308,6 +308,15 @@ def plan_itinerary(
         prob += pulp.lpSum(visit[i] for i in members) <= count, f"max_{category}"
     if applied.max_stops is not None:
         prob += pulp.lpSum(visit.values()) <= applied.max_stops, "max_stops"
+    # The first stop is whichever place the depot's single outgoing arc enters,
+    # so "start with X" is a constraint on that arc — not on the MTZ positions,
+    # which are continuous and only forbid subtours, never exact ranks. Forcing
+    # go[0→X] = 1 also forces visit[X] = 1 through X's in-degree equation.
+    for place_id in sorted(applied.first_ids):
+        prob += go[(0, index_of[place_id])] == 1, f"first_{place_id}"
+    for category in sorted(applied.first_categories):
+        members = by_category.get(category, [])
+        prob += pulp.lpSum(go[(0, i)] for i in members) == 1, f"first_{category}"
 
     # --- Route-structure constraints ---------------------------------------
     # Start: the depot is left at most once (zero if we visit nothing).

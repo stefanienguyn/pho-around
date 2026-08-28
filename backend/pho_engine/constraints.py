@@ -1,10 +1,12 @@
 """The constraint vocabulary — the only surface an outside caller may touch.
 
-A closed, typed set of seven "forms". Callers (today the API, later an LLM
+A closed, typed set of nine "forms". Callers (today the API, later an LLM
 behind it) may emit these and nothing else: no free-form expressions, no
-generated code, no way to choose or order stops. Selecting and ordering stays
-the solver's job — that invariant is the whole point of
-``wiki_storage/wiki/concepts/llm-in-the-loop-planning.md``.
+generated code, no way to choose stops or dictate the route. Selecting and
+ordering stays the solver's job — that invariant is the whole point of
+``wiki_storage/wiki/concepts/llm-in-the-loop-planning.md``. The one ordering
+form, ``FirstPlace`` / ``FirstCategory``, pins a single anchor ("start with
+phở"); the solver still sequences everything after it.
 
 Each form enters the MILP through one of three doors:
 
@@ -13,7 +15,8 @@ Each form enters the MILP through one of three doors:
 * **hard, before the model exists** — ``ExcludeCategory`` / ``ExcludePlace``
   drop places from the pool, so they never become variables at all.
 * **hard, inside the model** — ``RequirePlace`` / ``MinCategory`` /
-  ``MaxCategory`` / ``MaxStops`` become one linear constraint each.
+  ``MaxCategory`` / ``MaxStops`` / ``FirstPlace`` / ``FirstCategory`` become
+  one linear constraint each.
 
 The rule of thumb the design page insists on: **taste is soft, requirements
 are hard.** Encoding a mild preference as a hard constraint manufactures
@@ -84,6 +87,20 @@ class MaxStops:
     count: int
 
 
+@dataclass(frozen=True)
+class FirstPlace:
+    """Hard rule: this place is the first stop (which implies visiting it)."""
+
+    id: str
+
+
+@dataclass(frozen=True)
+class FirstCategory:
+    """Hard rule: the first stop is some place of ``category``."""
+
+    category: str
+
+
 Constraint = (
     BoostCategory
     | ExcludeCategory
@@ -92,6 +109,8 @@ Constraint = (
     | MinCategory
     | MaxCategory
     | MaxStops
+    | FirstPlace
+    | FirstCategory
 )
 
 
@@ -105,9 +124,14 @@ class Applied:
         weights: place id → score multiplier (1.0 unless boosted).
         required_ids: places that must be visited. Needed in two places: the
             candidate pre-filter must force them in, and the model pins them
-            with ``visit[i] = 1``.
+            with ``visit[i] = 1``. A ``FirstPlace`` is included here too —
+            "start with phở" implies visiting phở, and folding it in means the
+            pre-filter and the missing-place check need no second code path.
         min_category / max_category: category → count bounds.
         max_stops: overall stop ceiling, or None.
+        first_ids / first_categories: anchors for the first stop. More than one
+            is contradictory and simply yields an empty plan, like any other
+            impossible request.
     """
 
     pool: list[Place]
@@ -116,6 +140,8 @@ class Applied:
     min_category: dict[str, int]
     max_category: dict[str, int]
     max_stops: int | None
+    first_ids: frozenset[str]
+    first_categories: frozenset[str]
 
 
 def apply_constraints(places: list[Place], *, constraints: Sequence[Constraint]) -> Applied:
@@ -145,7 +171,9 @@ def apply_constraints(places: list[Place], *, constraints: Sequence[Constraint])
     """
     excluded_categories = {c.category for c in constraints if isinstance(c, ExcludeCategory)}
     excluded_ids = {c.id for c in constraints if isinstance(c, ExcludePlace)}
-    required_ids = frozenset(c.id for c in constraints if isinstance(c, RequirePlace))
+    first_ids = frozenset(c.id for c in constraints if isinstance(c, FirstPlace))
+    first_categories = frozenset(c.category for c in constraints if isinstance(c, FirstCategory))
+    required_ids = frozenset(c.id for c in constraints if isinstance(c, RequirePlace)) | first_ids
 
     pool = [
         place
@@ -179,4 +207,6 @@ def apply_constraints(places: list[Place], *, constraints: Sequence[Constraint])
         min_category=min_category,
         max_category=max_category,
         max_stops=max_stops,
+        first_ids=first_ids,
+        first_categories=first_categories,
     )

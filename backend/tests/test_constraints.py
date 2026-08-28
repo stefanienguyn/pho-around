@@ -9,6 +9,8 @@ from pho_engine.constraints import (
     BoostCategory,
     ExcludeCategory,
     ExcludePlace,
+    FirstCategory,
+    FirstPlace,
     MaxCategory,
     MaxStops,
     MinCategory,
@@ -131,3 +133,21 @@ def test_applying_twice_is_the_same_as_applying_once() -> None:
     assert [p.id for p in twice.pool] == [p.id for p in once.pool]
     assert twice.weights == once.weights
     assert twice.max_stops == once.max_stops
+
+
+def test_first_place_is_also_required_and_survives_filters() -> None:
+    """ "Start with phở" implies visiting phở — even if food is excluded."""
+    applied = apply_constraints(
+        PLACES, constraints=[FirstPlace(id="pho"), ExcludeCategory(category="food")]
+    )
+    assert applied.first_ids == {"pho"}
+    assert "pho" in applied.required_ids
+    assert [p.id for p in applied.pool if p.category == "food"] == ["pho"]
+
+
+def test_first_category_is_recorded_without_touching_the_pool() -> None:
+    """An anchor on a category filters nothing; the solver decides which member."""
+    applied = apply_constraints(PLACES, constraints=[FirstCategory(category="coffee")])
+    assert applied.first_categories == {"coffee"}
+    assert applied.required_ids == frozenset()
+    assert len(applied.pool) == len(PLACES)

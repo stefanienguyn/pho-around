@@ -39,6 +39,8 @@ from pho_engine.constraints import (
     Constraint,
     ExcludeCategory,
     ExcludePlace,
+    FirstCategory,
+    FirstPlace,
     MaxCategory,
     MaxStops,
     MinCategory,
@@ -177,6 +179,26 @@ class MaxStopsIn(BaseModel):
         return MaxStops(count=self.count)
 
 
+class FirstPlaceIn(_PlaceIdField):
+    """Hard rule: this place is the first stop."""
+
+    type: Literal["first_place"]
+
+    def to_engine(self) -> Constraint:
+        """Convert to the engine's constraint type."""
+        return FirstPlace(id=self.id)
+
+
+class FirstCategoryIn(_CategoryField):
+    """Hard rule: the first stop is some place of this category."""
+
+    type: Literal["first_category"]
+
+    def to_engine(self) -> Constraint:
+        """Convert to the engine's constraint type."""
+        return FirstCategory(category=self.category)
+
+
 ConstraintIn = Annotated[
     BoostCategoryIn
     | ExcludeCategoryIn
@@ -184,7 +206,9 @@ ConstraintIn = Annotated[
     | RequirePlaceIn
     | MinCategoryIn
     | MaxCategoryIn
-    | MaxStopsIn,
+    | MaxStopsIn
+    | FirstPlaceIn
+    | FirstCategoryIn,
     Field(discriminator="type"),
 ]
 

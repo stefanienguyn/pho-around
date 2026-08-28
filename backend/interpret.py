@@ -43,7 +43,7 @@ MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 # A preference sentence, not an essay. Bounds cost and blocks prompt-stuffing.
 MAX_MESSAGE_CHARS = 500
 
-# The seven shapes the model may emit. Mirrors ConstraintIn in api.py, which is
+# The nine shapes the model may emit. Mirrors ConstraintIn in api.py, which is
 # what actually validates them.
 CONSTRAINT_TYPES = (
     "boost_category",
@@ -53,6 +53,8 @@ CONSTRAINT_TYPES = (
     "min_category",
     "max_category",
     "max_stops",
+    "first_place",
+    "first_category",
 )
 
 
@@ -151,12 +153,21 @@ Emit ONLY constraints of these types:
   min_category     {{category, count}}   at least count of this category
   max_category     {{category, count}}   at most count of this category
   max_stops        {{count}}             at most count stops overall
+  first_place      {{id}}                this place is the FIRST stop (implies included)
+  first_category   {{category}}          the first stop is of this category
 
 Categories: {", ".join(categories)}
 
 Rules:
 - Negation matters more than anything else here. "no coffee" / "không cà phê"
   is exclude_category, NOT min_category. Read the polarity twice.
+- first_* only when the person signals *now* or *first*: "thèm", "đói quá",
+  "trước", "first", "start with". A plain wish ("phở for dinner", "I want
+  phở") is require_place / min_category, not first_*. first_place already
+  includes the place — do not also emit require_place or a boost for it.
+- A named dish or shop ("phở", "bánh mì Huỳnh Hoa") means the catalogue place
+  that serves it: use its id (first_place / require_place), not its category.
+  A kind of stop ("cà phê", "ăn gì đó") means the category.
 - Only emit a constraint the person actually asked for. Say nothing about
   budgets or time — those come from sliders the person already set.
 - If the request mentions nothing you can express, return an empty list.

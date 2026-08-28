@@ -8,6 +8,8 @@ easy to reason about (points spread along a line of latitude/longitude).
 import pytest
 
 from pho_engine.constraints import (
+    FirstCategory,
+    FirstPlace,
     BoostCategory,
     ExcludeCategory,
     MaxCategory,
@@ -386,3 +388,51 @@ def test_satiation_rate_differs_by_category() -> None:
     assert len(itin.stops) == 3
     assert categories.count("landmark") == 2, f"landmarks repeat cheaply, got {categories}"
     assert categories.count("coffee") == 1, f"coffee should not repeat, got {categories}"
+
+
+def test_first_place_overrides_the_travel_order() -> None:
+    """The shortest loop is a→b→c; anchoring c first flips the sequence.
+
+    Same collinear layout as the ordering test, but with a loose budget so
+    every order is feasible — the anchor, not the budget, decides. Without
+    the anchor the tiebreaker still yields a→b→c (guarded below), so the
+    test cannot pass by accident.
+    """
+    a = make_place("a", score=4.0, minutes=10, lng=106.01)
+    b = make_place("b", score=4.0, minutes=10, lng=106.02)
+    c = make_place("c", score=4.0, minutes=10, lng=106.03)
+    common = dict(time_budget_min=120, money_budget_vnd=0, stop_buffer_min=0, speed_kmh=40)
+
+    assert plan_itinerary([a, b, c], DEPOT, **common).place_ids == ["a", "b", "c"]
+    anchored = plan_itinerary([a, b, c], DEPOT, constraints=[FirstPlace(id="c")], **common)
+    assert anchored.place_ids[0] == "c"
+    assert set(anchored.place_ids) == {"a", "b", "c"}
+
+
+def test_first_category_picks_some_member_of_that_category_first() -> None:
+    """Anchor by category: the first stop is coffee, the solver chooses which."""
+    food = make_place("food", score=4.0, minutes=10, lng=106.01)
+    cafe = make_categorised("cafe", category="coffee", score=4.0, lng=106.03)
+    itin = plan_itinerary(
+        [food, cafe],
+        DEPOT,
+        time_budget_min=120,
+        money_budget_vnd=0,
+        stop_buffer_min=0,
+        speed_kmh=40,
+        constraints=[FirstCategory(category="coffee")],
+    )
+    assert itin.place_ids[0] == "cafe"
+
+
+def test_first_category_with_no_member_yields_an_empty_plan() -> None:
+    """An impossible anchor is an empty plan, never a crash."""
+    food = make_place("food", score=4.0, minutes=10, lng=106.01)
+    itin = plan_itinerary(
+        [food],
+        DEPOT,
+        time_budget_min=120,
+        money_budget_vnd=0,
+        constraints=[FirstCategory(category="coffee")],
+    )
+    assert itin.stops == ()

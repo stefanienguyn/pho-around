@@ -67,6 +67,10 @@ export function describeConstraint(constraint) {
       return `skip ${constraint.id}`
     case 'max_stops':
       return `max ${constraint.count} stops`
+    case 'first_place':
+      return `start with ${constraint.id}`
+    case 'first_category':
+      return `${category} first`
     default:
       return constraint.type
   }
