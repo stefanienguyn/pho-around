@@ -1,60 +1,118 @@
-import { useEffect, useRef } from 'react'
+import { useRef, useState } from 'react'
 import { importLibrary } from '@googlemaps/js-api-loader'
 import { CITY_CENTER, CITY_RADIUS_M } from './city'
+
+// One Places session = the keystrokes + the final details call, billed as a
+// unit. The token resets after each pick so the next search is its own session.
+const DEBOUNCE_MS = 250
 
 /**
  * A place-name search that resolves to coordinates.
  *
- * Google's PlaceAutocompleteElement is a web component: it draws its own
- * input and dropdown, and React does not own what happens inside it. So this
- * component only provides a mount point (the ref) and wires one DOM event —
- * `gmp-select` — back into React through `onPick(lat, lng)`.
+ * Our own input + suggestion list over Google's *data* API
+ * (`AutocompleteSuggestion`), not the `PlaceAutocompleteElement` widget: on
+ * narrow screens that widget takes over the whole viewport with its own
+ * fullscreen search UI — the card, the page, everything vanishes behind it.
+ * Drawing the list ourselves keeps the suggestions inside the card, unfolding
+ * under the input, styled by our tokens.
  *
- * Billing shape: every keystroke burst is an Autocomplete request; the one
- * fetchFields call asks for `location` only, which is the cheapest
- * (Essentials) Place Details tier.
+ * Expects `onPick(lat, lng)`; calls it once when a suggestion is chosen.
  */
 function PlaceSearch({ onPick }) {
-  const mountRef = useRef(null)
-  // The latest onPick, so the once-registered listener never goes stale.
-  const onPickRef = useRef(onPick)
-  onPickRef.current = onPick
+  const [query, setQuery] = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const sessionRef = useRef(null) // AutocompleteSessionToken, one per search
+  const timerRef = useRef(0)
+  const latestRef = useRef('') // drop answers that arrive out of order
 
-  useEffect(() => {
-    let cancelled = false
-    let element = null
-
-    async function mount() {
-      // Same loader as the map: the SDK script is already on the page, this
-      // just pulls in the `places` library.
-      const { PlaceAutocompleteElement } = await importLibrary('places')
-      if (cancelled || !mountRef.current) return
-      element = new PlaceAutocompleteElement({
-        // Suggestions lean toward the city; nothing outside Việt Nam at all.
+  async function fetchSuggestions(text) {
+    const { AutocompleteSuggestion, AutocompleteSessionToken } = await importLibrary('places')
+    if (!sessionRef.current) {
+      sessionRef.current = new AutocompleteSessionToken()
+    }
+    try {
+      const { suggestions: found } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
+        input: text,
+        sessionToken: sessionRef.current,
         locationBias: { center: CITY_CENTER, radius: CITY_RADIUS_M },
         includedRegionCodes: ['vn'],
       })
-      // The component follows the OS theme by default; the sheet is a paper
-      // card whatever the OS says. (Attribute form — the property alone is
-      // ignored before the element is attached.)
-      element.setAttribute('color-scheme', 'LIGHT')
-      element.addEventListener('gmp-select', async (event) => {
-        const place = event.placePrediction.toPlace()
-        await place.fetchFields({ fields: ['location'] })
-        onPickRef.current(place.location.lat(), place.location.lng())
-      })
-      mountRef.current.replaceChildren(element)
-      element.focus()
+      if (latestRef.current === text) {
+        setSuggestions(found)
+      }
+    } catch {
+      // Quota spent or network gone: no suggestions is a quiet, honest state —
+      // the sheet's other two paths (location, map) still work.
+      if (latestRef.current === text) {
+        setSuggestions([])
+      }
     }
+  }
 
-    mount()
-    return () => {
-      cancelled = true
-      element?.remove()
+  function handleChange(event) {
+    const text = event.target.value
+    setQuery(text)
+    latestRef.current = text
+    clearTimeout(timerRef.current)
+    if (!text.trim()) {
+      setSuggestions([])
+      return
     }
-  }, [])
+    timerRef.current = setTimeout(() => fetchSuggestions(text.trim()), DEBOUNCE_MS)
+  }
 
-  return <div className="place-search" ref={mountRef} />
+  // Enter = take the top suggestion; the list is tappable for the rest.
+  function handleKeyDown(event) {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      if (suggestions.length > 0) {
+        pick(suggestions[0])
+      }
+    }
+  }
+
+  async function pick(suggestion) {
+    const place = suggestion.placePrediction.toPlace()
+    // Location only — the cheapest (Essentials) details tier, and it ends
+    // the billing session.
+    await place.fetchFields({ fields: ['location'] })
+    sessionRef.current = null
+    setSuggestions([])
+    setQuery('')
+    onPick(place.location.lat(), place.location.lng())
+  }
+
+  return (
+    <div className="place-search">
+      <input
+        id="place-search"
+        type="text"
+        className="place-input"
+        value={query}
+        placeholder="Bến Thành, Thảo Điền, 42 Nguyễn Huệ…"
+        autoComplete="off"
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+      />
+      {suggestions.length > 0 && (
+        <ul className="place-list">
+          {suggestions.map((suggestion) => {
+            const prediction = suggestion.placePrediction
+            return (
+              <li key={prediction.placeId}>
+                <button type="button" className="place-option" onClick={() => pick(suggestion)}>
+                  <span className="place-main">{prediction.mainText?.text ?? prediction.text.text}</span>
+                  {prediction.secondaryText && (
+                    <span className="place-secondary">{prediction.secondaryText.text}</span>
+                  )}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 export default PlaceSearch

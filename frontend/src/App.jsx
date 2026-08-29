@@ -50,12 +50,16 @@ function App() {
   // the map is pinned to the top and the cards sit below the form, under the
   // fold. CSS scroll-margin keeps them clear of the pinned map. Reduced-motion
   // users get the jump without the glide.
+  // Jump to the results region the moment planning STARTS — the person
+  // should watch the loading panel become the route, not the sliders.
+  // Also fires when the itinerary lands (covers a solve so fast the loading
+  // scroll hasn't finished, and error → retry → result).
   const resultsRef = useRef(null)
   useEffect(() => {
-    if (itinerary === null) return
+    if (!loading && itinerary === null) return
     const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
     resultsRef.current?.scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' })
-  }, [itinerary])
+  }, [loading, itinerary])
 
   function handleReset() {
     setItinerary(null)

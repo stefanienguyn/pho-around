@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import PlaceSearch from './PlaceSearch'
 
 /**
@@ -8,40 +8,21 @@ import PlaceSearch from './PlaceSearch'
  * to the map's own tap-to-set hint). Picking any of them plans immediately.
  */
 function StartSheet({ locating, geoNote, onUseLocation, onPickPlace, onUseMap, onDismiss }) {
-  const backdropRef = useRef(null)
-
-  // "Centered" must mean centered in what the person can SEE. The phone
-  // keyboard shrinks only the *visual* viewport — CSS units (vh/svh/dvh) all
-  // ignore it — so focusing the address field left the sheet centered in the
-  // full page while Safari shoved the input to the top. Track the visual
-  // viewport by hand and size the backdrop to it; the grid re-centers inside.
+  // The card is NOT position:fixed — that was two bugs in a row. The phone
+  // keyboard scrolls the page to chase the text caret, and iOS repositions
+  // fixed overlays against the layout viewport, so a fixed card either got
+  // shoved off-screen or drifted while typing. In normal document flow near
+  // the top of the page, iOS's own caret-scrolling moves the card and the
+  // suggestion dropdown as one piece: the input holds its spot and the
+  // suggestions unfold beneath it. The only script left is scrolling the
+  // page to the top on open so the card is where the eye already is.
   useEffect(() => {
-    const viewport = window.visualViewport
-    const backdrop = backdropRef.current
-    if (!viewport || !backdrop) return
-
-    function fit() {
-      backdrop.style.top = `${viewport.offsetTop}px`
-      backdrop.style.height = `${viewport.height}px`
-      // Keyboard open (visual viewport well below the layout viewport):
-      // anchor the card to the visible TOP instead of centering. A centered
-      // card re-centers every time the suggestion dropdown grows it, so the
-      // input would drift while typing; top-anchored, growth is downward
-      // only and the input holds still.
-      const keyboardOpen = viewport.height < window.innerHeight * 0.8
-      backdrop.style.placeItems = keyboardOpen ? 'start center' : ''
-    }
-    fit()
-    viewport.addEventListener('resize', fit)
-    viewport.addEventListener('scroll', fit)
-    return () => {
-      viewport.removeEventListener('resize', fit)
-      viewport.removeEventListener('scroll', fit)
-    }
+    window.scrollTo(0, 0)
   }, [])
 
   return (
-    <div className="sheet-backdrop" ref={backdropRef}>
+    <>
+      <div className="sheet-backdrop" onClick={onDismiss} aria-hidden="true" />
       <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
         <h2 id="sheet-title" className="sheet-title">
           Got it. Where are you starting from?
@@ -67,7 +48,7 @@ function StartSheet({ locating, geoNote, onUseLocation, onPickPlace, onUseMap, o
           Not now
         </button>
       </div>
-    </div>
+    </>
   )
 }
 
