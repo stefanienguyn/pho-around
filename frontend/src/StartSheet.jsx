@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import PlaceSearch from './PlaceSearch'
 
 /**
@@ -7,8 +8,33 @@ import PlaceSearch from './PlaceSearch'
  * to the map's own tap-to-set hint). Picking any of them plans immediately.
  */
 function StartSheet({ locating, geoNote, onUseLocation, onPickPlace, onUseMap, onDismiss }) {
+  const backdropRef = useRef(null)
+
+  // "Centered" must mean centered in what the person can SEE. The phone
+  // keyboard shrinks only the *visual* viewport — CSS units (vh/svh/dvh) all
+  // ignore it — so focusing the address field left the sheet centered in the
+  // full page while Safari shoved the input to the top. Track the visual
+  // viewport by hand and size the backdrop to it; the grid re-centers inside.
+  useEffect(() => {
+    const viewport = window.visualViewport
+    const backdrop = backdropRef.current
+    if (!viewport || !backdrop) return
+
+    function fit() {
+      backdrop.style.top = `${viewport.offsetTop}px`
+      backdrop.style.height = `${viewport.height}px`
+    }
+    fit()
+    viewport.addEventListener('resize', fit)
+    viewport.addEventListener('scroll', fit)
+    return () => {
+      viewport.removeEventListener('resize', fit)
+      viewport.removeEventListener('scroll', fit)
+    }
+  }, [])
+
   return (
-    <div className="sheet-backdrop">
+    <div className="sheet-backdrop" ref={backdropRef}>
       <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
         <h2 id="sheet-title" className="sheet-title">
           Got it. Where are you starting from?
