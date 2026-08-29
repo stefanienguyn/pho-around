@@ -1266,10 +1266,9 @@ input[type='number'] {
   gap: var(--s-3);
   width: 100%;
   max-width: 420px;
-  /* With the phone keyboard up the backdrop can get very short (StartSheet
-     sizes it to the visual viewport); the card scrolls rather than clips. */
-  max-height: 100%;
-  overflow-y: auto;
+  /* No overflow clipping here: Google's suggestion dropdown hangs below the
+     card, and a scrollable card follows the caret — the input creeps to the
+     top while typing. StartSheet keeps the card inside the visible area. */
   padding: var(--s-5);
   background: var(--card);
   border: var(--border);

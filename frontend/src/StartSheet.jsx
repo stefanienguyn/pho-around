@@ -23,6 +23,13 @@ function StartSheet({ locating, geoNote, onUseLocation, onPickPlace, onUseMap, o
     function fit() {
       backdrop.style.top = `${viewport.offsetTop}px`
       backdrop.style.height = `${viewport.height}px`
+      // Keyboard open (visual viewport well below the layout viewport):
+      // anchor the card to the visible TOP instead of centering. A centered
+      // card re-centers every time the suggestion dropdown grows it, so the
+      // input would drift while typing; top-anchored, growth is downward
+      // only and the input holds still.
+      const keyboardOpen = viewport.height < window.innerHeight * 0.8
+      backdrop.style.placeItems = keyboardOpen ? 'start center' : ''
     }
     fit()
     viewport.addEventListener('resize', fit)
