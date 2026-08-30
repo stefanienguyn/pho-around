@@ -13,6 +13,9 @@ import { preloadPlaces } from './places'
 function AskBox({ value, onChange, onSubmit, asking, reply, constraints, dropped, error, onClear }) {
   function submit() {
     if (value.trim() && !asking) {
+      // Drop focus so the phone keyboard closes — pressing the keyboard's
+      // return key would otherwise leave it up over "Reading that…".
+      document.activeElement?.blur()
       onSubmit(value.trim())
     }
   }

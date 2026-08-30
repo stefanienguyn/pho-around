@@ -150,6 +150,15 @@ function App() {
   async function runInterpret(message) {
     setAsking(true)
     setAskError(null)
+    // The phone keyboard scrolled the hero away while typing and doesn't
+    // scroll back when it closes — restore the full-screen hero so the
+    // person watches "Reading that…" instead of a half-scrolled page.
+    window.scrollTo({
+      top: 0,
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : 'smooth',
+    })
     try {
       const res = await fetch(INTERPRET_URL, {
         method: 'POST',
