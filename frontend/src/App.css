@@ -219,8 +219,10 @@ h2 {
   padding: var(--s-4);
 }
 
-.wordmark {
-  font: var(--t-h1);
+.nav-logo {
+  display: block;
+  width: var(--s-8);
+  height: var(--s-8);
 }
 
 /* The glass pill: translucent paper with a paper hairline. Used for the
