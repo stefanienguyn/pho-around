@@ -42,7 +42,6 @@ function MapView({
   startLng,
   itinerary,
   picking,
-  nudge,
   onPickStart,
   hoveredStopId,
   onHoverStop,
@@ -51,7 +50,7 @@ function MapView({
   const mapRef = useRef(null) // the google.maps.Map instance
   const overlaysRef = useRef([]) // markers + polyline currently drawn
   const stopMarkersRef = useRef(new Map()) // place id → its stop marker
-  const shellRef = useRef(null) // our wrapper (hint pill + focus target)
+  const shellRef = useRef(null) // our wrapper (hint pill)
   // The click listener is captured once at map creation, so it would see
   // the first render's `picking` forever; a ref always holds the latest.
   const pickingRef = useRef(picking)
@@ -110,12 +109,6 @@ function MapView({
       mapRef.current.setOptions({ draggableCursor: picking ? 'crosshair' : null })
     }
   }, [picking, mapReady])
-
-  // Plan pressed with no start: pull focus here so the shaking hint pill
-  // (keyed remount below restarts its animation) is what the user sees.
-  useEffect(() => {
-    if (nudge > 0) shellRef.current?.focus()
-  }, [nudge])
 
   // The card ↔ pin link, map side: the hovered stop's pin scales up and
   // rises above its neighbours.
@@ -195,12 +188,10 @@ function MapView({
   // The shell is ours (hint pill, focus target); Google owns only the
   // inside of the .map div, exactly as before.
   return (
-    <div className="map-shell" ref={shellRef} tabIndex={-1}>
+    <div className="map-shell" ref={shellRef}>
       <div className="map" ref={mapDivRef} />
       {picking && (
-        <p className="map-hint" key={nudge} data-shake={nudge > 0 || undefined}>
-          Tap the map to set your start
-        </p>
+        <p className="map-hint">Tap the map to set your start</p>
       )}
     </div>
   )

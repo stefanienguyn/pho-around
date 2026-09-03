@@ -34,9 +34,9 @@ function App() {
   // Start-point mode: while true, map clicks set the start (crosshair +
   // hint pill). A map click or "Move" toggles it.
   const [picking, setPicking] = useState(true)
-  // Bumped when Plan is pressed with no start; MapView shakes the hint
-  // pill and takes focus so the map explains instead of a mute refusal.
-  const [nudge, setNudge] = useState(0)
+  // The start sheet's heading names the flow that opened it: the ask flow
+  // acknowledges the sentence, the Plan button explains what's missing.
+  const [sheetTitle, setSheetTitle] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   // null = not asked yet; an object with empty stops = asked, nothing fits.
@@ -192,6 +192,7 @@ function App() {
         runPlan(Number(timeMin), Number(moneyVnd), data.constraints)
       } else {
         setPlanOnStart(true)
+        setSheetTitle('Got it. Where are you starting from?')
         setSheetOpen(true)
       }
     } catch (err) {
@@ -246,8 +247,12 @@ function App() {
 
   function handleSubmit(event) {
     event.preventDefault()
+    // Plan pressed with no start: open the start sheet (location / search /
+    // map) and plan the moment one is picked — an answer, not a refusal.
     if (!Number.isFinite(parseFloat(lat)) || !Number.isFinite(parseFloat(lng))) {
-      setNudge((n) => n + 1)
+      setPlanOnStart(true)
+      setSheetTitle('First — where are you starting from?')
+      setSheetOpen(true)
       return
     }
     runPlan(Number(timeMin), Number(moneyVnd))
@@ -333,7 +338,6 @@ function App() {
             startLng={parseFloat(lng)}
             itinerary={itinerary}
             picking={picking}
-            nudge={nudge}
             onPickStart={handlePickStart}
             hoveredStopId={hoveredStopId}
             onHoverStop={setHoveredStopId}
@@ -364,6 +368,7 @@ function App() {
       {hasResults && <TotalsBar itinerary={itinerary} onReset={handleReset} />}
       {sheetOpen && (
         <StartSheet
+          title={sheetTitle}
           locating={locating}
           geoNote={geoNote}
           onUseLocation={handleUseLocation}

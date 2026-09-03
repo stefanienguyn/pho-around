@@ -7,7 +7,7 @@ import PlaceSearch from './PlaceSearch'
  * location, a place name, or the map (which closes the sheet and hands over
  * to the map's own tap-to-set hint). Picking any of them plans immediately.
  */
-function StartSheet({ locating, geoNote, onUseLocation, onPickPlace, onUseMap, onDismiss }) {
+function StartSheet({ title, locating, geoNote, onUseLocation, onPickPlace, onUseMap, onDismiss }) {
   // The card is NOT position:fixed — that was two bugs in a row. The phone
   // keyboard scrolls the page to chase the text caret, and iOS repositions
   // fixed overlays against the layout viewport, so a fixed card either got
@@ -25,7 +25,7 @@ function StartSheet({ locating, geoNote, onUseLocation, onPickPlace, onUseMap, o
       <div className="sheet-backdrop" onClick={onDismiss} aria-hidden="true" />
       <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
         <h2 id="sheet-title" className="sheet-title">
-          Got it. Where are you starting from?
+          {title}
         </h2>
         <button
           type="button"

@@ -670,15 +670,6 @@ input[type='number'] {
   font: var(--t-strong);
 }
 
-@keyframes hint-shake {
-  25% {
-    translate: -4px 0;
-  }
-  75% {
-    translate: 4px 0;
-  }
-}
-
 @keyframes card-in {
   from {
     opacity: 0;
@@ -745,10 +736,6 @@ input[type='number'] {
 
   .slider::-webkit-slider-thumb {
     transition: scale 120ms;
-  }
-
-  .map-hint[data-shake] {
-    animation: hint-shake 120ms;
   }
 
   .stop-card::before {
