@@ -12,16 +12,18 @@
      dark mode from repainting unstyled surfaces. */
   color-scheme: light;
 
-  /* Ink */
-  --ink: #1b1a17; /* text, borders, the drawn line */
-  --ink-2: #4a463d; /* secondary text */
-  --ink-3: #7a7365; /* muted text, placeholders */
+  /* Ink — Space Cadet navy (brand board), not black. The muted steps are
+     DESATURATED toward grey, not lightened along the navy hue: lightened
+     navy reads lavender, and the human vetoed the purple cast. */
+  --ink: #221d5d; /* text, borders, the drawn line */
+  --ink-2: #494861; /* secondary text */
+  --ink-3: #757488; /* muted text, placeholders */
 
-  /* Surfaces */
-  --paper: #fff6e9; /* page background */
-  --card: #fffdf7; /* raised surfaces */
-  --wash: #f5ebda; /* inset wells, disabled tracks, skeletons */
-  --line-soft: #e3d8c2; /* hairline dividers where ink is too heavy */
+  /* Surfaces — the board's warm cream. */
+  --paper: #fdf5d9; /* page background */
+  --card: #fffdf2; /* raised surfaces */
+  --wash: #f4ecc7; /* inset wells, disabled tracks, skeletons */
+  --line-soft: #e8dfb4; /* hairline dividers where ink is too heavy */
 
   /* Accents. Usage rules (not suggestions):
      --red is fill/stroke only — red TEXT uses --red-press;
@@ -34,12 +36,14 @@
   --cobalt-tint: #dce2f6;
   --mint: #2fb98a;
   --mint-tint: #ddf3ea;
-  --yolk: #ffb627;
-  --yolk-text: #6b4904;
+  --yolk: #fed835; /* Banana Yellow (brand board) */
+  --yolk-text: #221d5d;
 
-  /* Type families */
-  --font-display: 'Nunito', system-ui, sans-serif; /* 700/800 only */
-  --font-body: 'Be Vietnam Pro', system-ui, sans-serif; /* 400/500/600 */
+  /* Type families — the brand board's pairing: chubby rounded display
+     (Baloo 2 ≈ the board's Koni look, with full Vietnamese) over
+     Source Sans 3, the board's own body face. */
+  --font-display: 'Baloo 2', system-ui, sans-serif; /* 700/800 only */
+  --font-body: 'Source Sans 3', system-ui, sans-serif; /* 400/500/600 */
 
   /* Type scale — mobile values; desktop overrides in the media query
      below. Each token is a complete `font` shorthand:
@@ -86,26 +90,29 @@
   --border-thin: 1.5px solid var(--ink);
   --shadow-hard: 4px 4px 0 var(--ink);
   --shadow-press: 2px 2px 0 var(--ink);
-  --shadow-soft: 0 6px 20px rgba(27, 26, 23, 0.12);
+  --shadow-soft: 0 6px 20px rgba(34, 29, 93, 0.12);
 
   /* Landing hero, the one place paper sits ON TOP of imagery: an ink scrim
      so the headline reads on the brightest frame, and translucent paper
      ("glass") for the badge and the ask box. Paper-on-ink, never white. */
-  --scrim: rgba(27, 26, 23, 0.42);
-  --scrim-top: rgba(27, 26, 23, 0.6);
-  --glass: rgba(255, 246, 233, 0.16);
-  --glass-strong: rgba(255, 246, 233, 0.92);
-  --glass-line: rgba(255, 246, 233, 0.45);
+  /* Neutral warm dark, NOT the navy ink: navy over the warm video mixes
+     into a purple cast. The scrim's job is dimming, not branding. */
+  --scrim: rgba(30, 26, 22, 0.42);
+  --scrim-top: rgba(30, 26, 22, 0.6);
+  --glass: rgba(253, 245, 217, 0.16);
+  --glass-strong: rgba(253, 245, 217, 0.94);
+  --glass-line: rgba(253, 245, 217, 0.45);
   --t-hero: 800 clamp(40px, 9vw, 84px) / 1.05 var(--font-display);
   --t-hero-sub: 400 clamp(16px, 2.2vw, 20px) / 1.5 var(--font-body);
   /* Start-sheet card offset from the document top: snug on phones (room for
      the keyboard + dropdown), a modal-like drop on desktop (set below). */
   --sheet-top: var(--s-6);
 
-  /* Gạch bông tile, 28px repeat: paper ground, cobalt-tint diamond,
-     red-tint quarter circles at the corners. Inline SVG (vector) so it
-     stays crisp at any DPR; its colors mirror the tokens above. */
-  --tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28'%3E%3Crect width='28' height='28' fill='%23FFF6E9'/%3E%3Cpath d='M14 3L25 14L14 25L3 14Z' fill='%23DCE2F6'/%3E%3Ccircle cx='0' cy='0' r='6' fill='%23F7D8D3'/%3E%3Ccircle cx='28' cy='0' r='6' fill='%23F7D8D3'/%3E%3Ccircle cx='0' cy='28' r='6' fill='%23F7D8D3'/%3E%3Ccircle cx='28' cy='28' r='6' fill='%23F7D8D3'/%3E%3C/svg%3E");
+  /* Gạch bông tile, 28px repeat: cream ground, banana-tint diamond,
+     orange-tint quarter circles at the corners (brand board's yellows).
+     Inline SVG (vector) so it stays crisp at any DPR; its colors mirror
+     the tokens above. */
+  --tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28'%3E%3Crect width='28' height='28' fill='%23FDF5D9'/%3E%3Cpath d='M14 3L25 14L14 25L3 14Z' fill='%23FAE9A8'/%3E%3Ccircle cx='0' cy='0' r='6' fill='%23FBDFB4'/%3E%3Ccircle cx='28' cy='0' r='6' fill='%23FBDFB4'/%3E%3Ccircle cx='0' cy='28' r='6' fill='%23FBDFB4'/%3E%3Ccircle cx='28' cy='28' r='6' fill='%23FBDFB4'/%3E%3C/svg%3E");
 }
 
 /* Desktop type sizes (≥960px): the tokens change value, and every
@@ -268,18 +275,51 @@ h2 {
   margin: 0;
 }
 
-.hero-title span {
+/* Direct children only: the rotator's inner spans manage their own display. */
+.hero-title > span {
   display: block;
 }
 
-/* The accent words ride the route line — the red 4px stroke is the same
-   object that draws the itinerary on the map. */
-.hero-accent {
-  text-decoration: underline;
-  text-decoration-color: var(--red);
-  text-decoration-thickness: 0.08em;
-  text-underline-offset: 0.12em;
-  text-decoration-skip-ink: none; /* one unbroken route line, descenders or not */
+/* The time-of-day rotator: a window one line tall clips a vertical track of
+   "sáng nay / trưa nay / tối nay". The red route line is drawn on the WINDOW
+   — it stays put while the words scroll — and its width morphs to hug the
+   word on show: Hero measures each word (--w0/--w1/--w2, set in px after
+   fonts load) and the line-fit keyframes step through them on the same 8s
+   grid as the track. The window is a little taller than the type (1.2em) so
+   italic descenders aren't clipped; vertical-align pulls it back onto the
+   headline's baseline. */
+.hero-rotate {
+  position: relative;
+  display: inline-block;
+  height: 1.2em;
+  overflow: hidden;
+  vertical-align: -0.31em;
+}
+
+.hero-rotate::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0.04em;
+  height: 0.08em;
+  translate: -50% 0;
+  /* Resting width = "tối nay", matching the track's resting row. */
+  width: var(--w2, 100%);
+  background: var(--red);
+}
+
+.hero-rotate-track {
+  display: flex;
+  flex-direction: column;
+  /* Resting frame (reduced motion, and before the animation kicks in):
+     the third row — "tối nay". The animation overrides this while running. */
+  translate: 0 -2.4em;
+}
+
+.hero-rotate-track em {
+  display: block;
+  height: 1.2em;
+  text-align: center;
 }
 
 /* Insurance for the brightest frames (a white car crossing): a whisper of
@@ -758,6 +798,18 @@ input[type='number'] {
     animation: spin 1.2s linear infinite;
   }
 
+  /* Each time-of-day holds ~2.2s, then slides up in ~0.4s; the 4th row
+     duplicates the 1st, so the wrap back to 0 lands on an identical frame.
+     The underline's width animation shares the 8s grid, so line and word
+     change together. */
+  .hero-rotate-track {
+    animation: word-cycle 8s infinite;
+  }
+
+  .hero-rotate::after {
+    animation: line-fit 8s infinite;
+  }
+
   /* Hero entrance: the video settles from a slight zoom while the copy
      rises out of a blur, one piece after another (--stagger, 120ms apart).
      `both` keeps the from-state applied during the delay, so nothing
@@ -793,6 +845,42 @@ input[type='number'] {
     opacity: 1;
     translate: 0;
     filter: blur(0);
+  }
+}
+
+@keyframes word-cycle {
+  0%,
+  28% {
+    translate: 0 0;
+  }
+  33%,
+  61% {
+    translate: 0 -1.2em;
+  }
+  66%,
+  95% {
+    translate: 0 -2.4em;
+  }
+  100% {
+    translate: 0 -3.6em;
+  }
+}
+
+@keyframes line-fit {
+  0%,
+  28% {
+    width: var(--w0, 100%);
+  }
+  33%,
+  61% {
+    width: var(--w1, 100%);
+  }
+  66%,
+  95% {
+    width: var(--w2, 100%);
+  }
+  100% {
+    width: var(--w0, 100%);
   }
 }
 
@@ -1101,10 +1189,25 @@ input[type='number'] {
    Lives in the hero, on the video: the input is a glass-strong card (opaque
    enough to type into), everything else is paper on the scrim. */
 
+/* The slot is a centred flex item, which shrink-wraps by default — it must
+   span the column or the box inside it has nothing to be 100% OF. */
+.ask-slot {
+  width: 100%;
+}
+
 .ask {
   width: 100%;
   max-width: 560px;
+  margin: 0 auto;
   text-align: left;
+}
+
+/* Desktop: a sentence-sized line, not a phone-sized one. The phone keeps
+   560px (fits the viewport anyway); wide screens get room to type. */
+@media (min-width: 960px) {
+  .ask {
+    max-width: 760px;
+  }
 }
 
 .ask-label {
@@ -1205,11 +1308,6 @@ input[type='number'] {
   cursor: pointer;
 }
 
-.ask-note {
-  font: var(--t-micro);
-  color: var(--wash);
-  margin-top: var(--s-3);
-}
 
 /* Typed budget entry, revealed by the "Custom" chip. A slider is good at
    roughly and bad at exactly; this is the exactly. */

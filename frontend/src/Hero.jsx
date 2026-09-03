@@ -19,6 +19,25 @@ function Hero({ collapsed, children }) {
   // background image — stands in. Otherwise Safari paints its own play
   // button over a video that is meant to be wallpaper.
   const [refused, setRefused] = useState(false)
+  const rotateRef = useRef(null)
+
+  // The underline hugs each word: measure the three words (px, this font at
+  // this viewport size) into --w0/--w1/--w2 for the line-fit keyframes.
+  // Re-measured when the display font finishes loading (metrics change) and
+  // on resize (the hero type is clamp()ed to the viewport).
+  useEffect(() => {
+    const rotate = rotateRef.current
+    if (!rotate) return
+    function measure() {
+      rotate.querySelectorAll('em > span').forEach((word, i) => {
+        if (i < 3) rotate.style.setProperty(`--w${i}`, `${word.offsetWidth}px`)
+      })
+    }
+    measure()
+    document.fonts?.ready.then(measure)
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [collapsed])
 
   // Autoplay policy: browsers only autoplay video that is muted, and
   // React's `muted` prop sets the DOM *property* but not the HTML attribute
@@ -69,12 +88,35 @@ function Hero({ collapsed, children }) {
       <div className="hero-body">
         <span className="hero-pill" style={{ '--stagger': 0 }}>
           <span className="disc" aria-hidden="true" />
-          Sài Gòn · tối nay
+          Sài Gòn
         </span>
         <h1 className="hero-title" style={{ '--stagger': 1 }}>
           <span>Tell us what you're</span>
           <span>
-            craving <em className="hero-accent">tối nay</em>
+            up to{' '}
+            {/* A clipping window one line tall; the track scrolls the times of
+                day through it (last row duplicates the first for a seamless
+                wrap). Screen readers skip the mechanism and read the plain
+                "tối nay" that follows. */}
+            <span className="hero-rotate" aria-hidden="true" ref={rotateRef}>
+              <span className="hero-rotate-track">
+                {/* Inner spans exist to be measured: the em rows are blocks
+                    (window width), the spans hug the glyphs. */}
+                <em>
+                  <span>sáng nay</span>
+                </em>
+                <em>
+                  <span>trưa nay</span>
+                </em>
+                <em>
+                  <span>tối nay</span>
+                </em>
+                <em>
+                  <span>sáng nay</span>
+                </em>
+              </span>
+            </span>
+            <span className="sr-only">tối nay</span>
           </span>
         </h1>
         <p className="subline" style={{ '--stagger': 2 }}>

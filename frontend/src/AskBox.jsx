@@ -89,7 +89,6 @@ function AskBox({ value, onChange, onSubmit, asking, reply, constraints, dropped
           {dropped === 1 ? "One thing wasn't understood" : `${dropped} things weren't understood`}
         </p>
       )}
-      <p className="ask-note">Interpreted by Google Gemini</p>
     </div>
   )
 }
