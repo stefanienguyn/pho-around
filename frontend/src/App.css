@@ -1400,6 +1400,51 @@ input[type='number'] {
   background: var(--scrim);
 }
 
+/* The ask wait, centered on the viewport: scrim behind, card in the
+   middle, the bowl logo turning. Above the sheet (22 > 21) — asking can
+   only start from the box, but layering shouldn't depend on that. */
+.ask-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 22;
+  display: grid;
+  place-items: center;
+  background: var(--scrim);
+}
+
+.ask-overlay-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-4);
+  background: var(--card);
+  border: var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-hard);
+  padding: var(--s-6) var(--s-7);
+  margin: var(--s-4);
+}
+
+.ask-overlay-text {
+  font: var(--t-strong);
+  color: var(--ink);
+  margin: 0;
+  text-align: center;
+}
+
+.ask-spinner {
+  display: block;
+  width: 56px;
+  height: 56px;
+}
+
+/* Same gate as every other motion in the app. */
+@media (prefers-reduced-motion: no-preference) {
+  .ask-spinner {
+    animation: spin 1.2s linear infinite;
+  }
+}
+
 .sheet {
   position: absolute;
   top: var(--sheet-top);

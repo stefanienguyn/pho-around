@@ -70,7 +70,7 @@ export const UI = {
     // Ask box
     // askLabel: 'What are you in the mood for?',
     askButton: 'Ask',
-    askReading: 'Reading that…',
+    askReading: 'Making the best plan for you right now…',
     askClear: 'Clear',
     askDroppedOne: "One thing wasn't understood",
     askDroppedMany: (n) => `${n} things weren't understood`,
@@ -152,7 +152,7 @@ export const UI = {
     // Ask box
     // askLabel: 'Bạn đang thèm gì?',
     askButton: 'Hỏi',
-    askReading: 'Đang đọc…',
+    askReading: 'Đang lên kèo xịn nhất cho bạn nè…',
     askClear: 'Xoá',
     askDroppedOne: 'Có một ý tụi mình chưa hiểu',
     askDroppedMany: (n) => `Có ${n} ý tụi mình chưa hiểu`,

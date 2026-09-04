@@ -1,6 +1,10 @@
+import { createPortal } from 'react-dom'
 import { describeConstraint } from './format'
 import { useLang, useT } from './i18n'
 import { preloadPlaces } from './places'
+
+// Example sentence, not chrome: place-flavoured Vietnamese in both languages.
+const ASK_PLACEHOLDER = 'cà phê, không shopping, tối đa 3 chỗ'
 
 /**
  * A sentence in, planning constraints out.
@@ -37,9 +41,13 @@ function AskBox({ value, onChange, onSubmit, asking, reply, constraints, dropped
 
   return (
     <div className="ask">
-      <label className="ask-label" htmlFor="ask-input">
-        {t.askLabel}
-      </label>
+      {/* The visible label is optional (currently off in i18n.js); the
+          aria-label keeps the input named for screen readers either way. */}
+      {t.askLabel && (
+        <label className="ask-label" htmlFor="ask-input">
+          {t.askLabel}
+        </label>
+      )}
       <div className="ask-row">
         <input
           id="ask-input"
@@ -47,7 +55,8 @@ function AskBox({ value, onChange, onSubmit, asking, reply, constraints, dropped
           type="text"
           value={value}
           maxLength={500}
-          placeholder="cà phê, không shopping, tối đa 3 chỗ"
+          placeholder={ASK_PLACEHOLDER}
+          aria-label={t.askLabel ? undefined : ASK_PLACEHOLDER}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={preloadPlaces}
@@ -63,13 +72,22 @@ function AskBox({ value, onChange, onSubmit, asking, reply, constraints, dropped
         </button>
       </div>
 
-      {/* The model takes a few seconds (more on a cold backend); a line of
-          text is the honest signal — a "…" in a button reads as nothing. */}
-      {asking && (
-        <p className="ask-reply" role="status">
-          {t.askReading}
-        </p>
-      )}
+      {/* The model takes a few seconds (more on a cold backend). A centered
+          overlay carries the wait: the bowl logo spinning over a scrim, with
+          one honest line. role="status" announces it once. */}
+      {/* Portal: the hero's entrance animations leave transforms on every
+          child (fill: both), each a stacking context that would trap and
+          overpaint a fixed overlay. Rendering at document.body escapes. */}
+      {asking &&
+        createPortal(
+          <div className="ask-overlay" role="status">
+            <div className="ask-overlay-card">
+              <img className="ask-spinner" src="/favicon.png" alt="" />
+              <p className="ask-overlay-text">{t.askReading}</p>
+            </div>
+          </div>,
+          document.body
+        )}
       {error && <p className="ask-error">{error}</p>}
       {reply && !asking && <p className="ask-reply">{reply}</p>}
 
