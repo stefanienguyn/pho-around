@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useT } from './i18n'
 
 // One budget control: preset chips + a slider + a formatted readout.
 // Time and Money are the same interaction with different numbers, so they
@@ -27,6 +28,7 @@ function BudgetControl({
   customFactor = 1,
   sliderLabel,
 }) {
+  const t = useT()
   const customRef = useRef(null)
   const [customOpen, setCustomOpen] = useState(false)
   const n = Number(value)
@@ -56,7 +58,7 @@ function BudgetControl({
   return (
     <div className="control">
       <div className="control-label">{label}</div>
-      <div className="chips" role="group" aria-label={`${label} presets`}>
+      <div className="chips" role="group" aria-label={`${label} ${t.presetsSuffix}`}>
         {presets.map((preset) => (
           <button
             key={preset.value}
@@ -79,7 +81,7 @@ function BudgetControl({
             aria-expanded={customOpen}
             onClick={openCustom}
           >
-            Custom
+            {t.custom}
           </button>
         )}
       </div>

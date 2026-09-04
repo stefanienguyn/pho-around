@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLang, useT } from './i18n'
 
 // Served straight from public/ — Vite copies that folder as-is and never
 // inlines it, so the 4.9 MB video is a separate request, not bundle weight.
@@ -13,6 +14,8 @@ const POSTER_SRC = '/hero.jpg'
  * `children` is the ask box — App owns its state, exactly as with PlanForm.
  */
 function Hero({ collapsed, children }) {
+  const { lang, setLang } = useLang()
+  const t = useT()
   const videoRef = useRef(null)
   // True once the browser refused to autoplay (iOS Low Power Mode, data
   // saver): the video comes out of the DOM and the poster — the hero's
@@ -83,10 +86,28 @@ function Hero({ collapsed, children }) {
             cached from the tab icon. The alt carries the name for readers. */}
         <img className="nav-logo" src="/favicon.png" alt="Phở around" />
         <span className="hero-nav-links">
+          <span className="lang-toggle" role="group" aria-label="Language / Ngôn ngữ">
+            <button
+              type="button"
+              className={lang === 'en' ? 'is-on' : ''}
+              aria-pressed={lang === 'en'}
+              onClick={() => setLang('en')}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              className={lang === 'vi' ? 'is-on' : ''}
+              aria-pressed={lang === 'vi'}
+              onClick={() => setLang('vi')}
+            >
+              VI
+            </button>
+          </span>
           <a className="hero-pill" href="/about">
-            About us
+            {t.heroAbout}
           </a>
-          <span className="hero-pill">Early demo</span>
+          <span className="hero-pill">{t.heroDemo}</span>
         </span>
       </nav>
       {/* --stagger orders the entrance; the CSS multiplies it by 120ms. */}
@@ -96,9 +117,9 @@ function Hero({ collapsed, children }) {
           Sài Gòn
         </span>
         <h1 className="hero-title" style={{ '--stagger': 1 }}>
-          <span>Tell us what you're</span>
+          <span>{t.heroTitle1}</span>
           <span>
-            up to{' '}
+            {t.heroTitle2}
             {/* A clipping window one line tall; the track scrolls the times of
                 day through it (last row duplicates the first for a seamless
                 wrap). Screen readers skip the mechanism and read the plain
@@ -121,25 +142,25 @@ function Hero({ collapsed, children }) {
                 </em>
               </span>
             </span>
-            <span className="sr-only">tối nay</span>
+            <span className="sr-only">{t.heroRotatorSr}</span>
           </span>
         </h1>
         <p className="subline" style={{ '--stagger': 2 }}>
-          One sentence. A route around Sài Gòn that fits your time and your money.
+          {t.heroSubline}
         </p>
         <div style={{ '--stagger': 3 }} className="ask-slot">
           {children}
         </div>
         <a className="hero-skip" href="#plan" style={{ '--stagger': 4 }}>
-          or set it up by hand ↓
+          {t.heroSkip}
         </a>
         {/* Sets expectations before anything can disappoint: a first visitor
             meeting a cold start or a spent daily allowance reads it as a broken
             site unless told otherwise. Not dismissible — it is two lines, and a
             dismissed banner is the one nobody reads. */}
         <p className="demo-note" role="status" style={{ '--stagger': 5 }}>
-          <strong>Early demo.</strong> Still being built, so it can be slow to wake up and asking
-          in words has a small daily allowance. Thanks for your patience 🍜
+          <strong>{t.demoNoteStrong}</strong>
+          {t.demoNoteBody}
         </p>
       </div>
     </header>

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useT } from './i18n'
 import PlaceSearch from './PlaceSearch'
 
 /**
@@ -8,6 +9,7 @@ import PlaceSearch from './PlaceSearch'
  * to the map's own tap-to-set hint). Picking any of them plans immediately.
  */
 function StartSheet({ title, locating, geoNote, onUseLocation, onPickPlace, onUseMap, onDismiss }) {
+  const t = useT()
   // The card is NOT position:fixed — that was two bugs in a row. The phone
   // keyboard scrolls the page to chase the text caret, and iOS repositions
   // fixed overlays against the layout viewport, so a fixed card either got
@@ -34,18 +36,18 @@ function StartSheet({ title, locating, geoNote, onUseLocation, onPickPlace, onUs
           disabled={locating}
           autoFocus
         >
-          {locating ? 'Locating…' : '📍 Use my location'}
+          {locating ? t.locating : t.sheetUseLocation}
         </button>
         {geoNote && <p className="geo-note">{geoNote}</p>}
         <label className="sheet-label" htmlFor="place-search">
-          or search a place
+          {t.sheetSearchLabel}
         </label>
         <PlaceSearch onPick={onPickPlace} />
         <button type="button" className="text-button" onClick={onUseMap}>
-          or tap the map instead
+          {t.sheetUseMap}
         </button>
         <button type="button" className="ask-clear sheet-dismiss" onClick={onDismiss}>
-          Not now
+          {t.sheetDismiss}
         </button>
       </div>
     </>

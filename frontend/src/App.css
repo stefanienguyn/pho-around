@@ -411,6 +411,23 @@ a.hero-pill {
   backdrop-filter: none;
 }
 
+/* The EN/VI toggle over the hero video wears glass like its pill
+   neighbours; once the hero collapses onto paper it goes back to the
+   toggle's own card look. */
+.hero:not(.has-results) .lang-toggle {
+  border: 1px solid var(--glass-line);
+  background: var(--glass);
+}
+
+.hero:not(.has-results) .lang-toggle button {
+  color: var(--paper);
+}
+
+.hero:not(.has-results) .lang-toggle button.is-on {
+  background: var(--glass-strong);
+  color: var(--ink);
+}
+
 .content {
   display: flex;
   flex-direction: column;
@@ -1556,7 +1573,7 @@ input[type='number'] {
 }
 
 /* The EN/VI switch: one pill, two segments; the active one is inked. */
-.about-lang {
+.lang-toggle {
   display: inline-flex;
   border: var(--border-thin);
   border-radius: var(--r-pill);
@@ -1564,7 +1581,7 @@ input[type='number'] {
   background: var(--card);
 }
 
-.about-lang button {
+.lang-toggle button {
   font: var(--t-sm-strong);
   color: var(--ink-2);
   background: none;
@@ -1573,7 +1590,7 @@ input[type='number'] {
   cursor: pointer;
 }
 
-.about-lang button.is-on {
+.lang-toggle button.is-on {
   background: var(--ink);
   color: var(--paper);
 }

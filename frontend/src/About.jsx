@@ -13,30 +13,13 @@ import {
   PaperPlaneTiltIcon,
   TwitterLogoIcon,
 } from '@phosphor-icons/react'
+import { getInitialLang, persistLang } from './i18n'
 import './App.css'
 
 // Placeholder — swap in the real support/donation link when it exists.
 // '#' keeps the element a genuine link (focusable, styled) without going
 // anywhere yet.
 const SUPPORT_URL = '#'
-
-// The remembered language override. Only 'en' | 'vi' are ever stored.
-const LANG_KEY = 'pho-lang'
-
-/**
- * First-load language: an explicit earlier choice wins; otherwise the
- * browser's own language (vi-VN → Vietnamese, everything else English).
- * Returns 'en' or 'vi'.
- */
-function initialLang() {
-  try {
-    const saved = localStorage.getItem(LANG_KEY)
-    if (saved === 'en' || saved === 'vi') return saved
-  } catch {
-    // Private mode / blocked storage: fall through to the browser language.
-  }
-  return navigator.language?.toLowerCase().startsWith('vi') ? 'vi' : 'en'
-}
 
 // Every visible string on the page, both languages, one place. The title
 // is split around the highlighted word so the <mark> can wrap just it.
@@ -95,8 +78,8 @@ const STRINGS = {
     statsLabel: 'Phở around qua những con số',
     stats: ['Quốc gia đã nếm', 'Tín đồ sợi phở', 'Điểm ăn bí mật', 'Bụng đói ra về'],
     teamLabel: 'Đội ngũ',
-    teamH2: 'Gặp hội mê phở',
-    teamSub: 'Những con người (ham ăn) đứng sau chuyến đi sắp tới của bạn.',
+    teamH2: 'Gặp hội mê chơi',
+    teamSub: 'Những con người (ham chơi) đứng sau chuyến đi sắp tới của bạn.',
     ctaLabel: 'Lên lịch trình',
     ctaH2: 'Sẵn sàng đi chưa?',
     ctaText:
@@ -130,7 +113,7 @@ const TEAM = [
     tone: 'yellow',
     name: 'Đức',
     photo: '/duc.PNG',
-    role: { en: 'Chief Food Officer', vi: 'Trưởng nhóm phiêu lưu' },
+    role: { en: 'Chief Food Officer', vi: 'Giám đốc ẩm thực' },
     bio: {
       en: 'Ate countless bowls of bún mắm. He ensures the group never get hungry.',
       vi: 'Đã ăn rất nhiều bún mắm. Đảm bảo rằng bạn không bao giờ đói bụng.',
@@ -197,16 +180,12 @@ function TeamCard({ person, lang }) {
  * choice or the browser language, and the EN/VI toggle stores an override.
  */
 function About() {
-  const [lang, setLang] = useState(initialLang)
+  const [lang, setLang] = useState(getInitialLang)
   const t = STRINGS[lang]
 
   function switchLang(next) {
     setLang(next)
-    try {
-      localStorage.setItem(LANG_KEY, next)
-    } catch {
-      // Storage unavailable: the choice still applies for this visit.
-    }
+    persistLang(next)
   }
 
   // The tab title and the document's declared language follow the toggle
@@ -239,7 +218,7 @@ function About() {
           </a>
         </div>
         <div className="about-nav-right">
-          <div className="about-lang" role="group" aria-label="Language / Ngôn ngữ">
+          <div className="lang-toggle" role="group" aria-label="Language / Ngôn ngữ">
             <button
               type="button"
               className={lang === 'en' ? 'is-on' : ''}

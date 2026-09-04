@@ -7,6 +7,7 @@ import { Results, TotalsBar } from './Results'
 import StartSheet from './StartSheet'
 import { LoadingPanel, EmptyPanel, ErrorPanel } from './StatusPanels'
 import { formatDurationLong, formatVndSpoken } from './format'
+import { LangContext, UI, getInitialLang, persistLang } from './i18n'
 import './App.css'
 
 // Launch state: no start set — the map invites a tap. Time/money open on
@@ -25,6 +26,22 @@ const API_URL = `${API_BASE}/api/itinerary`
 const INTERPRET_URL = `${API_BASE}/api/interpret`
 
 function App() {
+  // The app language: browser default, overridden by the EN/VI toggle in
+  // the hero nav, remembered across visits and shared with /about.
+  const [lang, setLangState] = useState(getInitialLang)
+  const t = UI[lang]
+
+  function setLang(next) {
+    setLangState(next)
+    persistLang(next)
+  }
+
+  // Screen readers pick their voice from <html lang>. Place names stay
+  // marked lang="vi" individually when the page is English.
+  useEffect(() => {
+    document.documentElement.lang = lang
+  }, [lang])
+
   // Inputs always yield strings; keep state as strings and convert to
   // numbers only when building the API payload (the boundary).
   const [lat, setLat] = useState('')
@@ -36,7 +53,8 @@ function App() {
   const [picking, setPicking] = useState(true)
   // The start sheet's heading names the flow that opened it: the ask flow
   // acknowledges the sentence, the Plan button explains what's missing.
-  const [sheetTitle, setSheetTitle] = useState('')
+  // Stored as a STRINGS key, translated at render.
+  const [sheetTitleKey, setSheetTitleKey] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   // null = not asked yet; an object with empty stops = asked, nothing fits.
@@ -122,7 +140,7 @@ function App() {
   // the map-tap path), never an error state.
   function handleUseLocation() {
     if (!('geolocation' in navigator)) {
-      setGeoNote('Location isn’t available in this browser — tap the map instead.')
+      setGeoNote(t.geoUnavailable)
       return
     }
     setLocating(true)
@@ -134,7 +152,7 @@ function App() {
       },
       () => {
         setLocating(false)
-        setGeoNote('Couldn’t get your location — tap the map instead.')
+        setGeoNote(t.geoFailed)
       },
       // High accuracy = GPS on phones; the timeout keeps the button from
       // spinning forever indoors.
@@ -171,15 +189,11 @@ function App() {
         // "try tomorrow" are very different instructions.
         if (res.status === 429) {
           const body = await res.json().catch(() => null)
-          throw new Error(body?.detail ?? 'Busy right now — try again shortly')
+          throw new Error(body?.detail ?? t.askBusyFallback)
         }
         // 503 means the feature simply isn't switched on in this deployment;
         // the sliders still work, so say that rather than showing a failure.
-        throw new Error(
-          res.status === 503
-            ? "Asking isn't switched on here — use the sliders"
-            : "Couldn't read that — try again, or use the sliders",
-        )
+        throw new Error(res.status === 503 ? t.askDisabled : t.askFailed)
       }
       const data = await res.json()
       setConstraints(data.constraints)
@@ -192,7 +206,7 @@ function App() {
         runPlan(Number(timeMin), Number(moneyVnd), data.constraints)
       } else {
         setPlanOnStart(true)
-        setSheetTitle('Got it. Where are you starting from?')
+        setSheetTitleKey('sheetAfterAsk')
         setSheetOpen(true)
       }
     } catch (err) {
@@ -251,7 +265,7 @@ function App() {
     // map) and plan the moment one is picked — an answer, not a refusal.
     if (!Number.isFinite(parseFloat(lat)) || !Number.isFinite(parseFloat(lng))) {
       setPlanOnStart(true)
-      setSheetTitle('First — where are you starting from?')
+      setSheetTitleKey('sheetNeedStart')
       setSheetOpen(true)
       return
     }
@@ -281,15 +295,16 @@ function App() {
   // label. Rendered into the visually-hidden role="status" line below.
   let announcement = ''
   if (loading) {
-    announcement = 'Planning your route'
+    announcement = t.annPlanning
   } else if (error) {
-    announcement = 'Couldn’t reach the planner'
+    announcement = t.annError
   } else if (itinerary) {
     announcement = hasResults
-      ? `${itinerary.stops.length} stops, ${formatDurationLong(
-          Math.round(itinerary.total_minutes)
+      ? `${t.annStops(itinerary.stops.length)}, ${formatDurationLong(
+          Math.round(itinerary.total_minutes),
+          lang
         )}, ${formatVndSpoken(itinerary.total_cost_vnd)}`
-      : 'No plan fits your budgets'
+      : t.annEmpty
   }
 
   // Three page regions (hero / plan / results) + the map. The ask box
@@ -298,7 +313,7 @@ function App() {
   // so tab order starts at the inputs; CSS places the map visually (pinned
   // on top for phones, right column on desktop).
   return (
-    <>
+    <LangContext.Provider value={{ lang, setLang }}>
       <Hero collapsed={heroCollapsed}>
         <AskBox
           value={ask}
@@ -368,7 +383,7 @@ function App() {
       {hasResults && <TotalsBar itinerary={itinerary} onReset={handleReset} />}
       {sheetOpen && (
         <StartSheet
-          title={sheetTitle}
+          title={sheetTitleKey ? t[sheetTitleKey] : ''}
           locating={locating}
           geoNote={geoNote}
           onUseLocation={handleUseLocation}
@@ -377,7 +392,7 @@ function App() {
           onDismiss={handleDismissSheet}
         />
       )}
-    </>
+    </LangContext.Provider>
   )
 }
 

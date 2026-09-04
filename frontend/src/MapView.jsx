@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { importLibrary, setOptions } from '@googlemaps/js-api-loader'
 import { CITY_CENTER } from './city'
+import { useT } from './i18n'
 
 // Points at the "pho-around-web" cloud map config (Vector + the
 // "Plastic Stool paper" style; styling lives in the console, and inline
@@ -182,6 +183,7 @@ function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapReady, startLat, startLng, itinerary])
 
+  const t = useT()
   if (!API_KEY) {
     return <p className="error">Map disabled: VITE_GOOGLE_MAPS_API_KEY is not set (see .env.example).</p>
   }
@@ -190,9 +192,7 @@ function MapView({
   return (
     <div className="map-shell" ref={shellRef}>
       <div className="map" ref={mapDivRef} />
-      {picking && (
-        <p className="map-hint">Tap the map to set your start</p>
-      )}
+      {picking && <p className="map-hint">{t.mapHint}</p>}
     </div>
   )
 }

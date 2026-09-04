@@ -1,4 +1,5 @@
 import { formatDuration, formatVnd } from './format'
+import { useT } from './i18n'
 
 // Deep link to the real Google Maps place page (photos, hours, reviews) —
 // zero API calls, opens the Maps app on phones. Districts were abolished in
@@ -15,6 +16,7 @@ function mapsHref(place) {
 // single hoveredStopId owned by App.
 
 function StopCard({ stop, index, hot, onHoverStop }) {
+  const t = useT()
   const enter = () => onHoverStop(stop.place.id)
   const leave = () => onHoverStop(null)
   return (
@@ -37,13 +39,13 @@ function StopCard({ stop, index, hot, onHoverStop }) {
         </h3>
         <p className="stop-meta">
           <span className="chip-mini">{stop.place.category}</span>
-          stay {stop.place.avg_minutes} min
+          {t.stay(stop.place.avg_minutes)}
           <a
             className="maps-link"
             href={mapsHref(stop.place)}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={`Open ${stop.place.name} in Google Maps`}
+            aria-label={t.openInMaps(stop.place.name)}
           >
             Google Maps ↗
           </a>
@@ -52,7 +54,7 @@ function StopCard({ stop, index, hot, onHoverStop }) {
       {/* The only yolk on screen. Free places say so — a "0 ₫" money pill
           shouts about money that isn't there. */}
       <span className="price-pill">
-        {stop.place.price_per_person_vnd === 0 ? 'free' : formatVnd(stop.place.price_per_person_vnd)}
+        {stop.place.price_per_person_vnd === 0 ? t.free : formatVnd(stop.place.price_per_person_vnd)}
       </span>
     </div>
   )
@@ -61,9 +63,10 @@ function StopCard({ stop, index, hot, onHoverStop }) {
 // Only rendered with at least one stop — App routes the empty case to
 // EmptyPanel instead.
 function Results({ itinerary, hoveredStopId, onHoverStop, onReset }) {
+  const t = useT()
   return (
     <>
-      <h2>Your route</h2>
+      <h2>{t.resultsTitle}</h2>
       <ol className="route">
         {itinerary.stops.map((stop, index) => (
           // --stagger drives the entrance delay; capped so the whole
@@ -76,7 +79,7 @@ function Results({ itinerary, hoveredStopId, onHoverStop, onReset }) {
                 connector never claims a zero-minute ride. */}
             {index > 0 && (
               <p className="leg">
-                {Math.max(1, Math.round(stop.travel_minutes_from_prev))} min ride
+                {t.ride(Math.max(1, Math.round(stop.travel_minutes_from_prev)))}
               </p>
             )}
             <StopCard stop={stop} index={index} hot={hoveredStopId === stop.place.id} onHoverStop={onHoverStop} />
@@ -86,7 +89,7 @@ function Results({ itinerary, hoveredStopId, onHoverStop, onReset }) {
       {/* Mobile home of "Start over" — a destructive-ish action doesn't
           belong in a sticky bar under someone's thumb. Hidden ≥960px. */}
       <button type="button" className="ghost-button results-reset" onClick={onReset}>
-        Start over
+        {t.startOver}
       </button>
     </>
   )
@@ -95,21 +98,22 @@ function Results({ itinerary, hoveredStopId, onHoverStop, onReset }) {
 // The ink footer: totals as text, the mint check never alone (icon + words),
 // "Start over" at the right edge on desktop only.
 function TotalsBar({ itinerary, onReset }) {
+  const t = useT()
   const n = itinerary.stops.length
   return (
     <footer className="totals-bar">
       <p className="totals-line">
         {formatDuration(Math.round(itinerary.total_minutes))} ·{' '}
-        {formatVnd(itinerary.total_cost_vnd)} · {n} {n === 1 ? 'stop' : 'stops'}
+        {formatVnd(itinerary.total_cost_vnd)} · {n} {t.stopWord(n)}
       </p>
       <p className="within-budget">
         <span className="check" aria-hidden="true">
           ✓
         </span>{' '}
-        within budget
+        {t.withinBudget}
       </p>
       <button type="button" className="ghost-button bar-reset" onClick={onReset}>
-        Start over
+        {t.startOver}
       </button>
     </footer>
   )

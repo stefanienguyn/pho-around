@@ -1,5 +1,6 @@
 import BudgetControl from './BudgetControl'
 import { formatDuration, formatVnd } from './format'
+import { useT } from './i18n'
 
 const TIME_PRESETS = [
   { label: '1h', value: 60 },
@@ -34,12 +35,13 @@ function PlanForm({
   loading,
   onSubmit,
 }) {
+  const t = useT()
   const hasStart = Number.isFinite(parseFloat(lat)) && Number.isFinite(parseFloat(lng))
 
   return (
     <form onSubmit={onSubmit}>
       <div className="control">
-        <div className="control-label">Start</div>
+        <div className="control-label">{t.startLabel}</div>
         <div className="start-row">
           {hasStart ? (
             <>
@@ -50,12 +52,12 @@ function PlanForm({
               </span>
               {!picking && (
                 <button type="button" className="text-button" onClick={onMove}>
-                  Move
+                  {t.move}
                 </button>
               )}
             </>
           ) : (
-            <span className="start-empty">Tap the map to set your start</span>
+            <span className="start-empty">{t.startEmpty}</span>
           )}
           {/* Rendered in both start states: locate for the first time, or
               re-locate after moving around. */}
@@ -65,15 +67,15 @@ function PlanForm({
             onClick={onUseLocation}
             disabled={locating}
           >
-            {locating ? 'Locating…' : 'Use my location'}
+            {locating ? t.locating : t.useLocation}
           </button>
         </div>
         {geoNote && <p className="geo-note">{geoNote}</p>}
         <details className="coords">
-          <summary>Enter coordinates instead</summary>
+          <summary>{t.coordsSummary}</summary>
           <div className="start-fields">
             <label>
-              Latitude
+              {t.latitude}
               <input
                 type="number"
                 name="lat"
@@ -83,7 +85,7 @@ function PlanForm({
               />
             </label>
             <label>
-              Longitude
+              {t.longitude}
               <input
                 type="number"
                 name="lng"
@@ -97,7 +99,7 @@ function PlanForm({
       </div>
 
       <BudgetControl
-        label="Time"
+        label={t.timeLabel}
         value={timeMin}
         onChange={onTimeChange}
         min={30}
@@ -106,13 +108,13 @@ function PlanForm({
         presets={TIME_PRESETS}
         formatValue={formatDuration}
         customChip
-        customUnit="hours"
+        customUnit={t.hoursUnit}
         customFactor={60}
-        sliderLabel="Time in minutes"
+        sliderLabel={t.timeSlider}
       />
 
       <BudgetControl
-        label="Money"
+        label={t.moneyLabel}
         value={moneyVnd}
         onChange={onMoneyChange}
         min={50000}
@@ -121,12 +123,12 @@ function PlanForm({
         presets={MONEY_PRESETS}
         formatValue={formatVnd}
         customChip
-        customUnit="đồng"
-        sliderLabel="Money in đồng"
+        customUnit={t.dongUnit}
+        sliderLabel={t.moneySlider}
       />
 
       <button type="submit" className="plan-button" disabled={loading}>
-        {loading ? 'Planning…' : 'Plan my afternoon'}
+        {loading ? t.planning : t.planButton}
       </button>
     </form>
   )

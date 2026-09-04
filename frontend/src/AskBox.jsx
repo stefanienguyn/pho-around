@@ -1,4 +1,5 @@
 import { describeConstraint } from './format'
+import { useLang, useT } from './i18n'
 import { preloadPlaces } from './places'
 
 /**
@@ -11,6 +12,8 @@ import { preloadPlaces } from './places'
  * Provisional styling: this is the demo version, restyled in the UI redesign.
  */
 function AskBox({ value, onChange, onSubmit, asking, reply, constraints, dropped, error, onClear }) {
+  const { lang } = useLang()
+  const t = useT()
   function submit() {
     if (value.trim() && !asking) {
       // Drop focus so the phone keyboard closes — pressing the keyboard's
@@ -35,7 +38,7 @@ function AskBox({ value, onChange, onSubmit, asking, reply, constraints, dropped
   return (
     <div className="ask">
       <label className="ask-label" htmlFor="ask-input">
-        What are you in the mood for?
+        {t.askLabel}
       </label>
       <div className="ask-row">
         <input
@@ -56,7 +59,7 @@ function AskBox({ value, onChange, onSubmit, asking, reply, constraints, dropped
           onClick={submit}
           disabled={asking || !value.trim()}
         >
-          {asking ? '…' : 'Ask'}
+          {asking ? '…' : t.askButton}
         </button>
       </div>
 
@@ -64,7 +67,7 @@ function AskBox({ value, onChange, onSubmit, asking, reply, constraints, dropped
           text is the honest signal — a "…" in a button reads as nothing. */}
       {asking && (
         <p className="ask-reply" role="status">
-          Reading that…
+          {t.askReading}
         </p>
       )}
       {error && <p className="ask-error">{error}</p>}
@@ -75,18 +78,18 @@ function AskBox({ value, onChange, onSubmit, asking, reply, constraints, dropped
           <ul className="ask-chips">
             {constraints.map((constraint, index) => (
               <li className="ask-chip" key={`${constraint.type}-${index}`}>
-                {describeConstraint(constraint)}
+                {describeConstraint(constraint, lang)}
               </li>
             ))}
           </ul>
           <button className="ask-clear" type="button" onClick={onClear}>
-            Clear
+            {t.askClear}
           </button>
         </>
       )}
       {dropped > 0 && (
         <p className="ask-error">
-          {dropped === 1 ? "One thing wasn't understood" : `${dropped} things weren't understood`}
+          {dropped === 1 ? t.askDroppedOne : t.askDroppedMany(dropped)}
         </p>
       )}
     </div>

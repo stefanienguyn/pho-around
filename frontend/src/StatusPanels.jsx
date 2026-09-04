@@ -1,15 +1,10 @@
 import { useEffect, useState } from 'react'
+import { useT } from './i18n'
 
 // The results region's three non-result states. Loading and empty are
 // designed moments (tile-backed); error is deliberately plainer — card,
 // no tile — so the two are unmistakable for each other.
 
-const LOADING_LABELS = [
-  'Checking what’s open near you',
-  'Fitting your time and money',
-  'Putting the stops in order',
-  'Still working — the optimizer is being thorough',
-]
 // Label schedule: advance each second, jump to the overrun line at 8s.
 const LOADING_LABEL_AT_MS = [1000, 2000, 8000]
 
@@ -18,6 +13,7 @@ const LOADING_LABEL_AT_MS = [1000, 2000, 8000]
 // not its progress (which is unknowable; a stuck progress bar is worse
 // than none). Announced once via App's status line, not per label.
 function LoadingPanel() {
+  const t = useT()
   const [phase, setPhase] = useState(0)
   useEffect(() => {
     const timers = LOADING_LABEL_AT_MS.map((ms, i) => setTimeout(() => setPhase(i + 1), ms))
@@ -26,7 +22,7 @@ function LoadingPanel() {
   return (
     <div className="status-panel tile">
       <span className="disc spin-disc" aria-hidden="true" />
-      <p className="loading-label">{LOADING_LABELS[phase]}</p>
+      <p className="loading-label">{t.loadingLabels[phase]}</p>
       <div className="skeleton-card" aria-hidden="true" />
       <div className="skeleton-card" aria-hidden="true" />
     </div>
@@ -36,16 +32,17 @@ function LoadingPanel() {
 // An empty plan is a valid outcome, so it gets an answer, not an error
 // tone — and the fix itself, as chips that re-run the search on tap.
 function EmptyPanel({ onAddTime, onAddMoney }) {
+  const t = useT()
   return (
     <div className="status-panel tile">
-      <h2>Nothing fits — yet</h2>
-      <p className="status-body">Your budgets are a little tight for this neighbourhood.</p>
+      <h2>{t.emptyTitle}</h2>
+      <p className="status-body">{t.emptyBody}</p>
       <div className="chips">
         <button type="button" className="chip" onClick={onAddTime}>
-          +30 minutes
+          {t.addTime}
         </button>
         <button type="button" className="chip" onClick={onAddMoney}>
-          +100.000 ₫
+          {t.addMoney}
         </button>
       </div>
     </div>
@@ -53,15 +50,16 @@ function EmptyPanel({ onAddTime, onAddMoney }) {
 }
 
 function ErrorPanel({ detail, onRetry }) {
+  const t = useT()
   return (
     <div className="error-panel">
-      <h2>Couldn’t reach the planner</h2>
-      <p className="status-body">Check your connection and try again.</p>
+      <h2>{t.errorTitle}</h2>
+      <p className="status-body">{t.errorBody}</p>
       <button type="button" className="chip" onClick={onRetry}>
-        Try again
+        {t.retry}
       </button>
       <details className="error-detail">
-        <summary>Technical details</summary>
+        <summary>{t.errorDetails}</summary>
         <p>{detail}</p>
       </details>
     </div>
