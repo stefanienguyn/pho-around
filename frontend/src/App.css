@@ -1997,6 +1997,11 @@ input[type='number'] {
   color: var(--ink);
 }
 
+.about-socials a {
+  display: inline-flex;
+  color: inherit;
+}
+
 /* -- Newsletter banner -- */
 
 /* Last section on the page while the footer is gone, so it also carries

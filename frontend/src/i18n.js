@@ -152,7 +152,7 @@ export const UI = {
     // Ask box
     // askLabel: 'Bạn đang thèm gì?',
     askButton: 'Hỏi',
-    askReading: 'Đang lên kèo xịn nhất cho bạn nè…',
+    askReading: 'Giờ lên kèo xịn nhất cho bạn iu ngay nè…',
     askClear: 'Xoá',
     askDroppedOne: 'Có một ý tụi mình chưa hiểu',
     askDroppedMany: (n) => `Có ${n} ý tụi mình chưa hiểu`,

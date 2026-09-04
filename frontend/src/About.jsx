@@ -2,16 +2,11 @@ import { useEffect, useState } from 'react'
 import {
   AirplaneTiltIcon,
   ArrowRightIcon,
-  ChatCenteredTextIcon,
   ForkKnifeIcon,
   GithubLogoIcon,
-  GlobeSimpleIcon,
   HeartIcon,
-  InstagramLogoIcon,
   LinkedinLogoIcon,
   MapPinIcon,
-  PaperPlaneTiltIcon,
-  TwitterLogoIcon,
 } from '@phosphor-icons/react'
 import { getInitialLang, persistLang } from './i18n'
 import './App.css'
@@ -20,6 +15,12 @@ import './App.css'
 // '#' keeps the element a genuine link (focusable, styled) without going
 // anywhere yet.
 const SUPPORT_URL = '#'
+
+// Team profile links — paste the real URLs over the '#' placeholders.
+const PHUONG_LINKEDIN = 'https://www.linkedin.com/in/stef-nguyen'
+const PHUONG_GITHUB = "https://github.com/stefanienguyn"
+const DUC_LINKEDIN = 'https://github.com/duongduc388222'
+const DUC_GITHUB = 'https://www.linkedin.com/in/duchduong/'
 
 // Every visible string on the page, both languages, one place. The title
 // is split around the highlighted word so the <mark> can wrap just it.
@@ -106,7 +107,10 @@ const TEAM = [
       en: 'Started Phở-around after being homesick when study abroad. Believes everyone should try nước mía.',
       vi: 'Lập ra Phở-around vì nhớ nhà khi đi du học. Tin rằng mọi người nên thử nước mía.',
     },
-    icons: [InstagramLogoIcon, TwitterLogoIcon],
+    links: [
+      { Icon: LinkedinLogoIcon, href: PHUONG_LINKEDIN, label: 'LinkedIn' },
+      { Icon: GithubLogoIcon, href: PHUONG_GITHUB, label: 'GitHub' },
+    ],
   },
   {
     initial: 'S',
@@ -118,7 +122,10 @@ const TEAM = [
       en: 'Ate countless bowls of bún mắm. He ensures the group never get hungry.',
       vi: 'Đã ăn rất nhiều bún mắm. Đảm bảo rằng bạn không bao giờ đói bụng.',
     },
-    icons: [LinkedinLogoIcon, GlobeSimpleIcon],
+    links: [
+      { Icon: LinkedinLogoIcon, href: DUC_LINKEDIN, label: 'LinkedIn' },
+      { Icon: GithubLogoIcon, href: DUC_GITHUB, label: 'GitHub' },
+    ],
   },
   {
     initial: 'A',
@@ -130,7 +137,7 @@ const TEAM = [
       en: 'Make sure you have the best deal and pay the least money wherever you go.',
       vi: 'Luôn đảm bảo bạn có mã khuyến mãi lời nhất và phải chi số tiền ít nhất',
     },
-    icons: [GithubLogoIcon, PaperPlaneTiltIcon],
+    links: [], // icons parked until Uyên picks her profiles
   },
   {
     initial: 'E',
@@ -142,12 +149,12 @@ const TEAM = [
       en: 'Choose your favorite song and he makes sure you have a concert on the go (especially Hiếu Thứ Hai).',
       vi: 'Chọn một bài nhạc bạn thích và tận hưởng concert trên đường (đặc biệt là Hiếu Thứ Hai).',
     },
-    icons: [InstagramLogoIcon, ChatCenteredTextIcon],
+    links: [], // icons parked until Toàn picks his profiles
   },
 ]
 
 /**
- * One team card: avatar disc, role eyebrow, name, bio, two social glyphs.
+ * One team card: avatar disc, role eyebrow, name, bio, profile links.
  * `person` is one TEAM entry; `lang` picks the role/bio language.
  */
 function TeamCard({ person, lang }) {
@@ -161,11 +168,15 @@ function TeamCard({ person, lang }) {
       <p className="about-eyebrow about-role">{person.role[lang]}</p>
       <h3 className="about-name">{person.name}</h3>
       <p className="about-bio">{person.bio[lang]}</p>
-      <span className="about-socials" aria-hidden="true">
-        {person.icons.map((Icon, i) => (
-          <Icon key={i} size={24} />
-        ))}
-      </span>
+      {person.links.length > 0 && (
+        <span className="about-socials">
+          {person.links.map(({ Icon, href, label }) => (
+            <a key={label} href={href} aria-label={`${person.name} — ${label}`}>
+              <Icon size={24} />
+            </a>
+          ))}
+        </span>
+      )}
     </li>
   )
 }
