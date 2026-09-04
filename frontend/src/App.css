@@ -57,6 +57,7 @@
   --t-sm: 400 14px/1.5 var(--font-body);
   --t-micro: 600 12px/1.4 var(--font-body);
   --track-micro: 0.02em; /* letter-spacing partner of --t-micro */
+  --track-tight: -0.025em; /* display type at logo scale (about brand) */
   /* Plan-button label: constant 20px/700 display at every width. Large
      bold text is what lets paper-on-red pass contrast (3.96:1 ≥ 3:1);
      16px body text on red would fail 4.5:1. */
@@ -73,10 +74,14 @@
   --s-7: 48px;
   --s-8: 64px;
 
-  /* Radii */
+  /* Radii. The three big steps belong to the About page's marketing
+     scale (story image card / team cards / CTA banner). */
   --r-sm: 8px;
   --r-md: 12px;
   --r-lg: 16px;
+  --r-xl: 24px;
+  --r-2xl: 32px;
+  --r-3xl: 48px;
   --r-pill: 999px;
 
   /* The phone map's pinned height — read by the map itself and by the
@@ -104,6 +109,22 @@
   --glass-line: rgba(253, 245, 217, 0.45);
   --t-hero: 800 clamp(40px, 9vw, 84px) / 1.05 var(--font-display);
   --t-hero-sub: 400 clamp(16px, 2.2vw, 20px) / 1.5 var(--font-body);
+
+  /* About-page type (Figma node 1:2). Clamp()ed like the hero so the
+     marketing scale shrinks on phones without per-element media queries.
+     Same Vietnamese line-height floors as the app scale. */
+  --t-about-h2: 700 clamp(28px, 4.5vw, 36px) / 1.15 var(--font-display);
+  --t-about-cta: 800 clamp(34px, 5vw, 60px) / 1.1 var(--font-display);
+  --t-stat: 800 clamp(38px, 5vw, 48px) / 1.05 var(--font-display);
+  --t-lead: 400 clamp(18px, 2.2vw, 20px) / 1.6 var(--font-body);
+  --t-body-lg: 400 18px/1.6 var(--font-body);
+  --t-nav-link: 600 18px/1.55 var(--font-display);
+  /* Avatar pastels — pixel-sampled from the team's keychain photo
+     (IMG_4014) so each circle matches its real-life keychain. */
+  --ava-green: #b8d8a6;
+  --ava-yellow: #e4ea7e;
+  --ava-blue: #b9d5ee;
+  --ava-lilac: #e1dae8;
   /* Start-sheet card offset from the document top: snug on phones (room for
      the keyboard + dropdown), a modal-like drop on desktop (set below). */
   --sheet-top: var(--s-6);
@@ -247,6 +268,17 @@ h2 {
   border-radius: var(--r-pill);
   padding: var(--s-1) var(--s-3);
   backdrop-filter: blur(6px);
+}
+
+/* The About link and the demo tag share the nav's right corner. */
+.hero-nav-links {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+a.hero-pill {
+  text-decoration: none;
 }
 
 /* The dot in the badge is the stool disc at its smallest. */
@@ -1484,4 +1516,515 @@ input[type='number'] {
 .demo-note strong {
   font: var(--t-sm-strong);
   color: var(--paper);
+}
+
+/* ---------- 10. About page ----------
+   Figma node 1:2 translated onto the token system: the same ink borders
+   and hard offset shadows as the planner, plus the marketing-scale type
+   and radii tokens. Prefix `about-` keeps it separable from the app's
+   styles; mobile-first with the app's single 960px breakpoint. */
+
+/* Shared centered column: the design's 1440px frame with 32px gutters. */
+.about-shell {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding-inline: var(--s-6);
+}
+
+/* -- Nav -- */
+
+/* Wraps on narrow screens: brand on the first row, toggle + CTA drop to
+   a right-aligned second row instead of overflowing. */
+.about-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--s-5) var(--s-6);
+}
+
+.about-nav-right {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-left: auto;
+}
+
+/* The EN/VI switch: one pill, two segments; the active one is inked. */
+.about-lang {
+  display: inline-flex;
+  border: var(--border-thin);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  background: var(--card);
+}
+
+.about-lang button {
+  font: var(--t-sm-strong);
+  color: var(--ink-2);
+  background: none;
+  border: none;
+  padding: var(--s-1) var(--s-3);
+  cursor: pointer;
+}
+
+.about-lang button.is-on {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.about-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font: var(--t-h1);
+  letter-spacing: var(--track-tight);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+/* The nav brand mark: the favicon badge, same as the planner's nav. */
+.about-logo-img {
+  display: block;
+  width: 40px;
+  height: 40px;
+}
+
+/* Center links are desktop-only; on a phone the brand and the CTA carry
+   the nav (the planner is one tap away either way). */
+.about-nav-links {
+  display: none;
+  gap: var(--s-7);
+  /* Pairs with .about-nav-right's auto margin: the two split the free
+     space, keeping the links centered between brand and buttons. */
+  margin-left: auto;
+}
+
+.about-nav-link {
+  font: var(--t-nav-link);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+/* Red TEXT uses --red-press, per the accent rules in the token block. */
+.about-nav-link.is-current {
+  color: var(--red-press);
+  text-decoration: underline;
+}
+
+/* The red pill button, nav and newsletter both. Pressing depresses it
+   into its own shadow, like .plan-button. */
+.about-cta-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-3) var(--s-6);
+  background: var(--red);
+  color: var(--paper);
+  font: var(--t-button);
+  border: var(--border);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-press);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.about-cta-button:active {
+  translate: 2px 2px;
+  box-shadow: none;
+}
+
+/* -- Hero -- */
+
+.about-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--s-6);
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--s-8) var(--s-6) calc(var(--s-8) + var(--s-6));
+}
+
+/* All-caps 12px labels (badge, stat labels, roles, copyright). */
+.about-eyebrow {
+  font: var(--t-micro);
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.about-badge {
+  display: inline-flex;
+  align-items: center;
+  background: var(--yolk);
+  color: var(--ink);
+  border: var(--border);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-press);
+  padding: var(--s-1) var(--s-4);
+}
+
+.about-title {
+  font: var(--t-hero);
+  color: var(--ink);
+  margin: 0;
+  text-wrap: balance;
+}
+
+/* The highlighter swipe under "Phở-natic": paint only the bottom 40% of
+   the line, like a marker dragged under the word. <mark>'s UA yellow is
+   replaced, its ink color kept. */
+.about-highlight {
+  color: inherit;
+  background: linear-gradient(to bottom, transparent 60%, var(--yolk) 60%);
+  padding-inline: 0.12em;
+}
+
+/* The wink under the headline: a small red side note tucked right under
+   the title (the negative margin eats most of the hero's 32px gap).
+   --red-press, not --ink-3: the muted grey fails 4.5:1 at this size. */
+.about-title-aside {
+  font: var(--t-sm-strong);
+  color: var(--red-press);
+  margin: calc(-1 * var(--s-5)) 0 0;
+}
+
+.about-lead {
+  font: var(--t-lead);
+  color: var(--ink-2);
+  max-width: 34em;
+  margin: 0;
+}
+
+/* -- Story -- */
+
+.about-story {
+  display: grid;
+  gap: var(--s-8);
+  align-items: center;
+}
+
+.about-story-art {
+  position: relative;
+}
+
+/* The team drawing in its frame. The wash stays as the ground behind the
+   drawing's white paper while it loads. */
+.about-story-frame {
+  position: relative;
+  /* 4:3, not the design's 16:9 placeholder: the team drawing is portrait,
+     and the wider frame cropped half the faces away. */
+  aspect-ratio: 4 / 3;
+  background: var(--wash);
+  border: var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-hard);
+  overflow: hidden; /* clip the photo to the rounded corners */
+}
+
+/* Absolutely positioned so the image's intrinsic height can't inflate the
+   frame past its aspect-ratio. cover crops the portrait drawing; the
+   upward object-position keeps all four faces in the visible band. */
+.about-story-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 45%;
+}
+
+/* Rotated circle stickers pinned over the frame's corners. Decorative:
+   the mint one carries no meaning alone, allowed by the accent rules. */
+.about-sticker {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  padding: var(--s-4);
+  border-radius: 50%;
+  border: var(--border);
+  box-shadow: var(--shadow-press);
+}
+
+.about-sticker.at-top {
+  top: 0;
+  right: 0;
+  translate: 30% -35%;
+  rotate: 12deg;
+  background: var(--yolk);
+  color: var(--ink);
+}
+
+.about-sticker.at-bottom {
+  bottom: 0;
+  left: 0;
+  translate: -30% 35%;
+  rotate: -12deg;
+  background: var(--mint);
+  color: var(--paper);
+}
+
+.about-h2 {
+  font: var(--t-about-h2);
+  color: var(--ink);
+  margin: 0;
+}
+
+.about-story-text {
+  font: var(--t-body-lg);
+  color: var(--ink-2);
+  margin: var(--s-5) 0 0;
+}
+
+.about-support {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-5);
+  font: var(--t-button);
+  color: var(--cobalt);
+  text-decoration: none;
+}
+
+.about-support:hover,
+.about-support:focus-visible {
+  text-decoration: underline;
+}
+
+/* -- Stats band -- */
+
+.about-stats-band {
+  margin-top: calc(var(--s-8) * 2);
+  background: var(--wash);
+  border-top: var(--border);
+  border-bottom: var(--border);
+  padding-block: var(--s-8);
+}
+
+.about-stats {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s-6);
+  text-align: center;
+  margin-block: 0;
+}
+
+.about-stat-value {
+  font: var(--t-stat);
+  color: var(--ink);
+  margin: 0;
+}
+
+/* --ink-2, not the design's muted grey: 12px text on --wash needs 4.5:1
+   and --ink-3 measures 3.9. */
+.about-stat-label {
+  color: var(--ink-2);
+  margin-top: var(--s-2);
+}
+
+/* -- Team -- */
+
+.about-team {
+  margin-top: calc(var(--s-8) * 2);
+  text-align: center;
+}
+
+.about-team-sub {
+  font: var(--t-body-lg);
+  color: var(--ink-2);
+  margin: var(--s-4) 0 0;
+}
+
+.about-team-grid {
+  list-style: none;
+  padding: 0;
+  margin: var(--s-8) 0 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s-7);
+}
+
+.about-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--s-6);
+  background: var(--card);
+  border: var(--border);
+  border-radius: var(--r-2xl);
+  box-shadow: var(--shadow-hard);
+}
+
+/* The avatar is the stool disc grown to portrait size: filled circle,
+   ink ring, one display-face initial standing in for a photo. */
+.about-avatar {
+  display: grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  border: var(--border);
+  box-shadow: var(--shadow-hard);
+  font: 700 36px/1 var(--font-display);
+  overflow: hidden; /* clip photos to the circle */
+}
+
+.about-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* fill the circle; crop, never squash */
+  /* The illustrations carry transparent margins, so they render small.
+     Scale them up inside the clipping circle, anchored near the head. */
+  transform: scale(1.35);
+  transform-origin: 50% 20%;
+}
+
+/* Keychain pastels; ink initials stay readable on all four when a card
+   has no photo yet. */
+.tone-green {
+  background: var(--ava-green);
+  color: var(--ink);
+}
+
+.tone-yellow {
+  background: var(--ava-yellow);
+  color: var(--ink);
+}
+
+.tone-blue {
+  background: var(--ava-blue);
+  color: var(--ink);
+}
+
+.tone-lilac {
+  background: var(--ava-lilac);
+  color: var(--ink);
+}
+
+.about-role {
+  color: var(--red-press);
+  margin-top: var(--s-5);
+}
+
+.about-name {
+  font: var(--t-h1);
+  color: var(--ink);
+  margin: var(--s-2) 0 0;
+}
+
+.about-bio {
+  font: var(--t-body);
+  color: var(--ink-2);
+  margin: var(--s-4) 0 0;
+}
+
+.about-socials {
+  display: inline-flex;
+  gap: var(--s-4);
+  margin-top: var(--s-5);
+  color: var(--ink);
+}
+
+/* -- Newsletter banner -- */
+
+/* Last section on the page while the footer is gone, so it also carries
+   the bottom margin. */
+.about-cta-section {
+  margin-top: calc(var(--s-8) * 2);
+  margin-bottom: calc(var(--s-8) + var(--s-6));
+}
+
+.about-banner {
+  position: relative;
+  overflow: clip;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: var(--yolk);
+  border: var(--border);
+  border-radius: var(--r-3xl);
+  box-shadow: var(--shadow-hard);
+  padding: var(--s-8) var(--s-6);
+}
+
+/* Corner glyphs at 20% opacity: texture, not content. Desktop-only —
+   at phone widths they collide with the copy. */
+.about-banner-decor {
+  display: none;
+  position: absolute;
+  color: var(--ink);
+  opacity: 0.2;
+}
+
+.about-banner-decor.at-top {
+  top: var(--s-6);
+  left: var(--s-6);
+  rotate: -12deg;
+}
+
+.about-banner-decor.at-bottom {
+  bottom: var(--s-6);
+  right: var(--s-6);
+  rotate: 12deg;
+}
+
+.about-banner-title {
+  font: var(--t-about-cta);
+  color: var(--ink);
+  margin: 0;
+}
+
+.about-banner-text {
+  font: var(--t-lead);
+  color: var(--ink);
+  margin: var(--s-6) 0 0;
+  max-width: 29em;
+}
+
+/* The banner's one action: above the corner glyphs, spaced like the
+   form it replaced. */
+.about-banner-cta {
+  position: relative;
+  margin-top: var(--s-7);
+}
+
+@media (min-width: 960px) {
+  .about-nav-links {
+    display: flex;
+  }
+
+  .about-story {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .about-stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* Four cards, symmetric: a centered 2×2. The max-width keeps each card
+     at the design's ~427px instead of stretching to half the shell. */
+  .about-team-grid {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 900px;
+    margin-inline: auto;
+  }
+
+  .about-banner {
+    padding: calc(var(--s-8) + var(--s-6)) var(--s-8);
+  }
+
+  .about-banner-decor {
+    display: block;
+  }
 }

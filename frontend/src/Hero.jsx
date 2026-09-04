@@ -82,7 +82,12 @@ function Hero({ collapsed, children }) {
         {/* The circle badge is the page's favicon file: one asset, already
             cached from the tab icon. The alt carries the name for readers. */}
         <img className="nav-logo" src="/favicon.png" alt="Phở around" />
-        <span className="hero-pill">Early demo</span>
+        <span className="hero-nav-links">
+          <a className="hero-pill" href="/about">
+            About us
+          </a>
+          <span className="hero-pill">Early demo</span>
+        </span>
       </nav>
       {/* --stagger orders the entrance; the CSS multiplies it by 120ms. */}
       <div className="hero-body">
