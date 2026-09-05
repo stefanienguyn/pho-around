@@ -841,12 +841,6 @@ input[type='number'] {
     animation-delay: calc(var(--stagger) * 40ms);
   }
 
-  /* Once per 1.2s, linear — a turning object, not a bouncing dot.
-     Reduced-motion users get a static disc; the label still narrates. */
-  .spin-disc {
-    animation: spin 1.2s linear infinite;
-  }
-
   /* Each time-of-day holds ~2.2s, then slides up in ~0.4s; the 4th row
      duplicates the 1st, so the wrap back to 0 lands on an identical frame.
      The underline's width animation shares the 8s grid, so line and word
@@ -1091,24 +1085,6 @@ input[type='number'] {
 .status-body {
   margin: 0;
   color: var(--ink-2);
-}
-
-/* The loading disc: the stool disc at 64px with a paper "clock hand" —
-   a plain circle shows nothing when it rotates. */
-.spin-disc {
-  --disc-size: 64px;
-  position: relative;
-}
-
-.spin-disc::after {
-  content: '';
-  position: absolute;
-  top: 5px;
-  left: calc(50% - 2px);
-  width: 4px;
-  height: 40%;
-  border-radius: var(--r-pill);
-  background: var(--paper);
 }
 
 .loading-label {
@@ -1432,7 +1408,9 @@ input[type='number'] {
   text-align: center;
 }
 
-.ask-spinner {
+/* The bowl logo as wait marker — shared by the ask overlay and the loading
+   panel, so every wait in the app turns the same bowl. */
+.bowl-spinner {
   display: block;
   width: 56px;
   height: 56px;
@@ -1440,7 +1418,7 @@ input[type='number'] {
 
 /* Same gate as every other motion in the app. */
 @media (prefers-reduced-motion: no-preference) {
-  .ask-spinner {
+  .bowl-spinner {
     animation: spin 1.2s linear infinite;
   }
 }

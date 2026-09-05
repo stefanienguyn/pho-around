@@ -82,7 +82,7 @@ function AskBox({ value, onChange, onSubmit, asking, reply, constraints, dropped
         createPortal(
           <div className="ask-overlay" role="status">
             <div className="ask-overlay-card">
-              <img className="ask-spinner" src="/favicon.png" alt="" />
+              <img className="bowl-spinner" src="/favicon.png" alt="" />
               <p className="ask-overlay-text">{t.askReading}</p>
             </div>
           </div>,

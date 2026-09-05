@@ -21,7 +21,9 @@ function LoadingPanel() {
   }, [])
   return (
     <div className="status-panel tile">
-      <span className="disc spin-disc" aria-hidden="true" />
+      {/* The bowl logo turning — the same wait marker as the ask overlay, so
+          "reading your words" and "planning your route" wear one face. */}
+      <img className="bowl-spinner" src="/favicon.png" alt="" />
       <p className="loading-label">{t.loadingLabels[phase]}</p>
       <div className="skeleton-card" aria-hidden="true" />
       <div className="skeleton-card" aria-hidden="true" />
